@@ -17,24 +17,16 @@
 </template>
 
 <script>
-import { useRouter } from 'vue-router';
+import { useSettingsLogic } from '../logic/settingsLogic';
 
 export default {
   name: 'Settings',
   setup() {
-    const router = useRouter();
-
-    const goBack = () => {
-      router.push('/');
-    };
-
-    const goToModelList = () => {
-      router.push('/model-list');
-    };
+    const settingsLogic = useSettingsLogic();
 
     return {
-      goBack,
-      goToModelList
+      goBack: settingsLogic.goBack,
+      goToModelList: settingsLogic.goToModelList
     };
   }
 };
