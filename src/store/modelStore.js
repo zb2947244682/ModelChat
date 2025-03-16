@@ -123,18 +123,18 @@ export const modelStore = {
 modelStore.init();
 
 // 添加默认的OpenRouter配置用于测试
-// if (modelStore.state.models.length === 0) {
-//   modelStore.saveModel({
-//     provider: "OpenRouter",
-//     api_mode: "OpenAPI标准接口",
-//     api_endpoint: "https://openrouter.ai/api/v1",
-//     api_path: "/chat/completions",
-//     api_key: "",
-//     model_list: ["GPT-4o-mini"],
-//     max_context_messages: 20,
-//     temperature: 0.7,
-//     top_p: 1,
-//     is_default: true
-//   });
-//   console.log('已添加默认OpenRouter配置');
-// }
+if (modelStore.state.models.length === 0) {
+  // modelStore.saveModel({
+  //   provider: "API易",
+  //   api_mode: "OpenAPI标准接口",
+  //   api_endpoint: "https://vip.apiyi.com/v1",
+  //   api_path: "/chat/completions",
+  //   api_key: "sk-bPDxnIcWpGi1XmUD3843C76505Fc46Ae998e556085453dC0",
+  //   model_list: ["gpt-4o-mini"],
+  //   max_context_messages: 20,
+  //   temperature: 0.7,
+  //   top_p: 1,
+  //   is_default: true
+  // });
+  // console.log('已添加默认OpenRouter配置');
+}
