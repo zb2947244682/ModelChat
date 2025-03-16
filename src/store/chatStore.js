@@ -2,11 +2,13 @@
 const CHAT_STORAGE_KEY = 'model-chat-conversations';
 const CURRENT_CONVERSATION_KEY = 'model-chat-current-conversation';
 
+import { reactive } from 'vue';
+
 export const chatStore = {
-  state: {
+  state: reactive({
     conversations: [],
     currentConversationId: null
-  },
+  }),
 
   // 初始化，从localStorage加载数据
   init() {
@@ -14,7 +16,7 @@ export const chatStore = {
       // 加载对话列表
       const storedConversations = localStorage.getItem(CHAT_STORAGE_KEY);
       if (storedConversations) {
-        this.state.conversations = JSON.parse(storedConversations);
+        this.state.conversations = JSON.parse(storedConversations).map(conv => reactive(conv));
         console.log('已从localStorage加载对话列表:', this.state.conversations.length, '个对话');
       }
       
@@ -38,10 +40,23 @@ export const chatStore = {
         console.log('初始化设置第一个对话为当前对话:', this.state.currentConversationId);
         this._saveCurrentConversationIdToStorage();
       }
+      
+      // 确保至少有一个对话
+      if (this.state.conversations.length === 0) {
+        console.log('没有对话记录，创建一个新对话');
+        const newConversation = this.createConversation('新对话');
+        this.state.currentConversationId = newConversation.id;
+        console.log('初始化创建新对话:', this.state.currentConversationId);
+      }
     } catch (error) {
       console.error('加载对话数据失败:', error);
       this.state.conversations = [];
       this.state.currentConversationId = null;
+      
+      // 即使出错也确保有一个对话
+      console.log('初始化出错，创建一个新对话');
+      const newConversation = this.createConversation('新对话');
+      this.state.currentConversationId = newConversation.id;
     }
   },
 
@@ -90,14 +105,14 @@ export const chatStore = {
 
   // 创建新对话
   createConversation(title, systemPrompt = '') {
-    const newConversation = {
+    const newConversation = reactive({
       id: Date.now().toString(),
       title: title || `对话 ${this.state.conversations.length + 1}`,
       systemPrompt: systemPrompt,
       messages: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    };
+    });
     
     console.log('创建新对话:', newConversation.id, '系统提示词:', systemPrompt);
     
@@ -147,9 +162,11 @@ export const chatStore = {
           this.state.currentConversationId = this.state.conversations[0].id;
           console.log('设置新的当前对话:', this.state.currentConversationId);
         } else {
-          // 没有对话了，清空当前对话ID
-          this.state.currentConversationId = null;
-          console.log('没有更多对话，清空当前对话ID');
+          // 没有对话了，创建一个新对话
+          console.log('没有更多对话，创建新对话');
+          const newConversation = this.createConversation('新对话');
+          this.state.currentConversationId = newConversation.id;
+          console.log('创建新对话并设置为当前对话:', this.state.currentConversationId);
         }
         
         // 更新localStorage中的当前对话ID
@@ -168,10 +185,16 @@ export const chatStore = {
   addMessage(conversationId, message) {
     const conversation = this.state.conversations.find(conv => conv.id === conversationId);
     if (conversation) {
+      // 如果没有提供id，则生成一个唯一id
+      const messageToAdd = { ...message };
+      if (!messageToAdd.id) {
+        // 使用时间戳+随机数确保唯一性
+        messageToAdd.id = Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9);
+      }
+      
       // 添加消息
       conversation.messages.push({
-        id: Date.now().toString(),
-        ...message,
+        ...messageToAdd,
         timestamp: new Date().toISOString()
       });
       

@@ -108,8 +108,23 @@ export const openApiService = {
           if (line.trim() === 'data: [DONE]') continue;
 
           try {
-            // 移除 "data: " 前缀
-            const jsonStr = line.replace(/^data: /, '').trim();
+            // 处理不同前缀的行
+            let jsonStr = '';
+            
+            // 处理标准 "data: " 前缀
+            if (line.startsWith('data: ')) {
+              jsonStr = line.replace(/^data: /, '').trim();
+            } 
+            // 处理冒号开头的特殊消息 (如 ": OPENROUTER PROCESSING")
+            else if (line.startsWith(': ')) {
+              console.log("收到OpenRouter特殊消息:", line);
+              continue; // 跳过这种消息的处理
+            } 
+            // 其他情况，尝试作为普通消息处理
+            else {
+              jsonStr = line.trim();
+            }
+            
             if (!jsonStr) continue;
             
             console.log("收到的JSON字符串:", jsonStr);
@@ -131,15 +146,11 @@ export const openApiService = {
                 }
               }
             } catch (parseError) {
-              console.error('JSON解析失败:', parseError);
-              console.log('尝试解析的内容:', jsonStr);
+              console.error('JSON解析失败:', parseError, '内容:', jsonStr);
               
-              // 如果不是有效的JSON，可能是服务器返回的错误消息
-              // 直接将其作为内容显示
-              fullContent += jsonStr;
-              if (onChunk) {
-                onChunk(jsonStr, fullContent);
-              }
+              // 不将解析失败的内容添加到响应中
+              // 避免将错误的JSON字符串显示给用户
+              console.log('跳过无效JSON内容');
             }
           } catch (e) {
             console.error('处理流式响应行失败:', e, line);
