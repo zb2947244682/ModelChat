@@ -41,18 +41,21 @@
     </div>
 
     <div class="chat-container">
-      <div class="messages" ref="messagesContainer">
-        <div v-if="!currentConversation || currentConversation.messages.length === 0" class="empty-state">
-          <p>开始一个新的对话吧！</p>
-        </div>
-        <div v-else v-for="message in currentConversation.messages" :key="message.id" 
-          :class="['message', message.role]">
-          <div class="message-content">{{ message.content }}</div>
-        </div>
-        <div v-if="isLoading" class="message assistant">
-          <div class="message-content loading">正在思考...</div>
-        </div>
-      </div>
+<div class="messages" ref="messagesContainer">
+  <div v-if="!currentConversation || currentConversation.messages.length === 0" class="empty-state">
+    <p>开始一个新的对话吧！</p>
+  </div>
+  <template v-else>
+    <div v-for="message in currentConversation.messages" :key="message.id" 
+      :class="['message', message.role === 'user' ? 'user-message' : 'assistant-message']">
+      <div class="message-role">{{ message.role === 'user' ? '用户' : 'AI' }}</div>
+      <div class="message-content">{{ message.content }}</div>
+    </div>
+  </template>
+  <div v-if="isLoading" class="message assistant">
+    <div class="message-content loading">正在思考...</div>
+  </div>
+</div>
 
       <div class="input-container">
         <textarea 
@@ -158,8 +161,15 @@ export default {
     });
 
     // 监听对话变化，滚动到底部
-    watch(() => currentConversation.value?.messages.length, () => {
-      scrollToBottom();
+    watch(() => currentConversation.value?.messages.length, (newLength) => {
+      console.log("对话消息长度变化:", newLength);
+      console.log("当前对话消息:", currentConversation.value?.messages);
+      
+      // 确保DOM已更新
+      nextTick(() => {
+        console.log("DOM更新后，消息容器子元素数量:", messagesContainer.value?.children.length);
+        scrollToBottom();
+      });
     });
 
     // 监听当前对话变化，更新系统提示词
@@ -189,9 +199,20 @@ export default {
 
     // 创建新对话
     const createNewConversation = () => {
+      // 创建新对话前清空当前对话的引用，避免UI显示旧对话
       const newConv = chatStore.createConversation('新对话');
       console.log('在Home组件中创建了新对话:', newConv.id);
+      
+      // 确保系统提示词被重置
       systemPrompt.value = '';
+      
+      // 强制刷新UI
+      nextTick(() => {
+        // 确保当前对话ID已更新
+        console.log('新建对话后的当前对话ID:', chatStore.getCurrentConversation()?.id);
+        console.log('新建对话后的消息数量:', chatStore.getCurrentConversation()?.messages.length || 0);
+      });
+      
       return newConv;
     };
 
@@ -208,19 +229,37 @@ export default {
       console.log("系统提示词类型:", typeof systemPrompt.value);
       console.log("系统提示词长度:", systemPrompt.value.length);
       
-      if (currentConversation.value) {
-        console.log("当前对话ID:", currentConversation.value.id);
-        console.log("更新前对话的系统提示词:", currentConversation.value.systemPrompt);
-        
-        chatStore.updateConversation(currentConversation.value.id, {
-          systemPrompt: systemPrompt.value
-        });
-        
-        // 验证更新是否生效
-        const updatedConv = chatStore.getConversations().find(c => c.id === currentConversation.value.id);
+      // 检查是否存在当前对话
+      if (!currentConversation.value) {
+        console.warn("没有当前对话，尝试创建新对话");
+        // 创建新对话并设置系统提示词
+        const newConv = createNewConversation();
+        // 立即更新新对话的系统提示词
+        if (newConv && newConv.id) {
+          chatStore.updateConversation(newConv.id, {
+            systemPrompt: systemPrompt.value
+          });
+          console.log("已为新创建的对话设置系统提示词:", systemPrompt.value);
+        } else {
+          console.error("创建新对话失败，无法设置系统提示词");
+        }
+        return;
+      }
+      
+      console.log("当前对话ID:", currentConversation.value.id);
+      console.log("更新前对话的系统提示词:", currentConversation.value.systemPrompt);
+      
+      // 更新当前对话的系统提示词
+      chatStore.updateConversation(currentConversation.value.id, {
+        systemPrompt: systemPrompt.value
+      });
+      
+      // 验证更新是否生效
+      const updatedConv = chatStore.getConversations().find(c => c.id === currentConversation.value.id);
+      if (updatedConv) {
         console.log("更新后对话的系统提示词:", updatedConv.systemPrompt);
       } else {
-        console.warn("没有当前对话，无法更新系统提示词");
+        console.error("无法找到更新后的对话");
       }
     };
 
@@ -284,15 +323,15 @@ export default {
       // 开始加载
       isLoading.value = true;
       
-      // 创建一个空的助手消息用于更新
-      const assistantMessageId = Date.now().toString();
-      console.log("创建助手消息ID:", assistantMessageId);
-      
-      chatStore.addMessage(conversationId, {
-        id: assistantMessageId,
+      // 添加空的助手消息，让chatStore为我们生成唯一ID
+      const assistantMessage = chatStore.addMessage(conversationId, {
         role: 'assistant',
         content: ''
       });
+      
+      // 获取助手消息ID用于后续更新
+      const assistantMessageId = assistantMessage.messages[assistantMessage.messages.length - 1].id;
+      console.log("创建助手消息ID:", assistantMessageId);
       
       // 尝试调用API
       console.log("准备调用API");
@@ -318,15 +357,25 @@ export default {
         // 获取API服务
         const apiService = getApiService(currentModel.api_mode);
         
-        // 准备消息历史 - 只包含历史消息，不包括刚刚添加的
-        const messageHistory = conv?.messages
-          .filter(msg => msg.role === 'user' || msg.role === 'assistant')
-          .slice(0, -2) // 排除最后添加的用户消息和空的助手消息
+        // 准备消息历史 - 包含所有历史消息
+        const allMessages = conv?.messages || [];
+        
+        // 找到最后添加的用户消息和空的助手消息的索引
+        const lastUserIndex = allMessages.length - 2; // 倒数第二条消息应该是刚添加的用户消息
+        const lastAssistantIndex = allMessages.length - 1; // 倒数第一条消息应该是刚添加的空助手消息
+        
+        // 过滤出有效的历史消息，排除刚刚添加的用户消息和空助手消息
+        const messageHistory = allMessages
+          .filter((msg, index) => 
+            (msg.role === 'user' || msg.role === 'assistant') && 
+            index !== lastUserIndex && 
+            index !== lastAssistantIndex
+          )
           .slice(-currentModel.max_context_messages)
           .map(msg => ({
             role: msg.role,
             content: msg.content
-          })) || [];
+          }));
         
         // 添加当前用户消息
         messageHistory.push({
@@ -362,22 +411,35 @@ export default {
                 return;
               }
               
-              // 更新消息内容
-              const updatedMessages = currentConv.messages.map(msg => 
-                msg.id === assistantMessageId 
-                  ? { ...msg, content: fullContent } 
-                  : msg
-              );
-              
-              // 更新对话
-              chatStore.updateConversation(conversationId, { 
-                messages: updatedMessages 
-              });
-              
-              // 强制滚动更新
-              nextTick(() => {
-                scrollToBottom();
-              });
+              try {
+                // 直接更新当前消息的内容
+                assistantMessage.content = fullContent;
+                
+                // 强制触发Vue的响应式更新
+                const updatedConv = JSON.parse(JSON.stringify(currentConv));
+                const updatedAssistantMessage = updatedConv.messages.find(msg => msg.id === assistantMessageId);
+                if (updatedAssistantMessage) {
+                  updatedAssistantMessage.content = fullContent;
+                }
+                
+                // 更新对话
+                chatStore.updateConversation(conversationId, { 
+                  messages: updatedConv.messages 
+                });
+                
+                // 强制更新视图
+                if (conversationId === chatStore.getCurrentConversation()?.id) {
+                  // 使用Vue的响应式系统强制更新
+                  nextTick(() => {
+                    // 检查DOM是否已更新
+                    console.log('当前消息数量:', messagesContainer.value?.children.length);
+                    // 强制滚动更新
+                    scrollToBottom();
+                  });
+                }
+              } catch (updateError) {
+                console.error('更新消息内容失败:', updateError);
+              }
             }
           }
         ).then(response => {
@@ -457,5 +519,78 @@ export default {
 </script>
 
 <style scoped>
-/* 样式由用户单独优化 */
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 10px;
+  height: 300px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+}
+
+.message {
+  padding: 10px;
+  border-radius: 8px;
+  max-width: 80%;
+}
+
+.user-message {
+  align-self: flex-end;
+  background-color: #dcf8c6;
+  margin-left: auto;
+}
+
+.assistant-message {
+  align-self: flex-start;
+  background-color: #ffffff;
+  margin-right: auto;
+}
+
+.message-role {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #555;
+}
+
+.message-content {
+  word-break: break-word;
+}
+
+.loading {
+  font-style: italic;
+  color: #888;
+}
+
+.input-container {
+  display: flex;
+  margin-top: 10px;
+}
+
+.input-container textarea {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  resize: none;
+  height: 60px;
+}
+
+.input-container button {
+  margin-left: 10px;
+  padding: 0 20px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.input-container button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
 </style>

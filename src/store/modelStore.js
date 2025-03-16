@@ -121,3 +121,20 @@ export const modelStore = {
 
 // 初始化
 modelStore.init();
+
+// 添加默认的OpenRouter配置用于测试
+// if (modelStore.state.models.length === 0) {
+//   modelStore.saveModel({
+//     provider: "OpenRouter",
+//     api_mode: "OpenAPI标准接口",
+//     api_endpoint: "https://openrouter.ai/api/v1",
+//     api_path: "/chat/completions",
+//     api_key: "",
+//     model_list: ["GPT-4o-mini"],
+//     max_context_messages: 20,
+//     temperature: 0.7,
+//     top_p: 1,
+//     is_default: true
+//   });
+//   console.log('已添加默认OpenRouter配置');
+// }
