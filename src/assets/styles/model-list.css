@@ -99,6 +99,11 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
+.model-item.is-default {
+  background-color: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
 .model-info {
   display: flex;
   flex-direction: column;
@@ -157,6 +162,15 @@
 .model-actions button:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.default-badge {
+  padding: 4px 8px;
+  border-radius: var(--border-radius-sm);
+  background-color: var(--primary-color);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 /* 响应式调整 */
