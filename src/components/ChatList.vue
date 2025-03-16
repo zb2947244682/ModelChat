@@ -2,7 +2,7 @@
   <div class="chat-list-container">
     <div class="header">
       <h2>对话列表</h2>
-      <button @click="$emit('close')">关闭</button>
+      <button @click="$emit('close')" title="关闭">✕</button>
     </div>
 
     <div class="conversations">
@@ -22,14 +22,17 @@
             <div class="conversation-date">{{ formatDate(conversation.updatedAt) }}</div>
           </div>
           <div class="conversation-actions">
-            <button @click.stop="deleteConversation(conversation.id)">删除</button>
+            <button @click.stop="deleteConversation(conversation.id)" title="删除">🗑️</button>
           </div>
         </div>
       </div>
     </div>
 
     <div class="actions">
-      <button @click="createNewConversation">新建对话</button>
+      <button @click="createNewConversation">
+        <span>+</span>
+        <span>新建对话</span>
+      </button>
     </div>
   </div>
 </template>
@@ -114,5 +117,5 @@ export default {
 </script>
 
 <style scoped>
-/* 样式由用户单独优化 */
+@import '../assets/styles/chat-list.css';
 </style>

@@ -3,15 +3,21 @@
     <div class="header">
       <h1>AI聊天助手</h1>
       <div class="actions">
-        <button @click="showChatList = !showChatList">对话列表</button>
-        <button @click="createNewConversation">新建对话</button>
-        <button @click="goToSettings">设置</button>
+        <button @click="showChatList = !showChatList" title="对话列表">
+          <span class="icon">&#9776;</span>
+        </button>
+        <button @click="createNewConversation" title="新建对话">
+          <span class="icon">&#43;</span>
+        </button>
+        <button @click="goToSettings" title="设置">
+          <span class="icon">&#9881;</span>
+        </button>
       </div>
     </div>
 
     <div class="model-selector">
       <div class="provider-selector">
-        <label for="provider">选择提供商:</label>
+        <label for="provider">选择提供商</label>
         <select id="provider" v-model="selectedProvider" @change="onProviderChange">
           <option v-for="model in models" :key="model.provider" :value="model.provider">
             {{ model.provider }}
@@ -19,7 +25,7 @@
         </select>
       </div>
       <div class="model-name-selector">
-        <label for="model">选择模型:</label>
+        <label for="model">选择模型</label>
         <select id="model" v-model="selectedModelName">
           <option v-for="modelName in currentModelNames" :key="modelName" :value="modelName">
             {{ modelName }}
@@ -30,69 +36,72 @@
 
     <div class="system-prompt">
       <div class="system-prompt-header">
-        <label for="systemPrompt">系统提示词:</label>
+        <label for="systemPrompt">系统提示词</label>
       </div>
       <textarea 
         id="systemPrompt" 
         v-model="systemPrompt" 
         @input="updateSystemPrompt"
-        placeholder="输入系统提示词..."
+        placeholder="输入系统提示词，定义AI助手的行为和能力..."
       ></textarea>
     </div>
 
     <div class="chat-container">
-<div class="messages" ref="messagesContainer">
-  <div v-if="!currentConversation || currentConversation.messages.length === 0" class="empty-state">
-    <p>开始一个新的对话吧！</p>
-    <button @click="clearConversation">清空对话记录</button>
-  </div>
-  <template v-else>
-    <div v-for="message in currentConversation.messages" :key="message.id" 
-      :class="['message', message.role === 'user' ? 'user-message' : 'assistant-message']">
-      <div class="message-header">
-        <div class="message-role">{{ message.role === 'user' ? '用户' : 'AI' }}</div>
-        <!-- 用户消息操作 -->
-        <div v-if="message.role === 'user'" class="message-actions">
-          <button @click="editMessage(message)">编辑</button>
-          <button @click="deleteMessage(message.id)">删除</button>
+      <div class="messages" ref="messagesContainer">
+        <div v-if="!currentConversation || currentConversation.messages.length === 0" class="empty-state">
+          <p>开始一个新的对话吧！</p>
+          <button @click="clearConversation">清空对话记录</button>
+        </div>
+        <template v-else>
+          <div v-for="message in currentConversation.messages" :key="message.id" 
+            :class="['message', message.role === 'user' ? 'user-message' : 'assistant-message']">
+            <div class="message-header">
+              <div class="message-role">{{ message.role === 'user' ? '用户' : 'AI助手' }}</div>
+            </div>
+            
+            <div v-if="editingMessageId === message.id" class="message-edit">
+              <textarea v-model="editingContent"></textarea>
+              <div class="edit-actions">
+                <button @click="saveEdit(message.id)">保存</button>
+                <button @click="cancelEdit()">取消</button>
+              </div>
+            </div>
+            <div v-else class="message-content">{{ message.content }}</div>
+            
+            <!-- 用户消息操作 -->
+            <div v-if="message.role === 'user'" class="message-actions">
+              <button @click="editMessage(message)" title="编辑">✏️</button>
+              <button @click="deleteMessage(message.id)" title="删除">🗑️</button>
+            </div>
+            
+            <!-- 助手消息操作 -->
+            <div v-else class="message-actions">
+              <button @click="copyAsMarkdown(message.content)" title="复制为Markdown">📋</button>
+              <button @click="copyAsText(message.content)" title="复制文本">📄</button>
+              <button @click="regenerateMessage(message.id)" title="重新生成">🔄</button>
+              <button @click="deleteMessage(message.id)" title="删除">🗑️</button>
+            </div>
+          </div>
+        </template>
+        
+        <div v-if="isLoading" class="message assistant-message">
+          <div class="message-content loading">正在思考...</div>
         </div>
         
-        <!-- 助手消息操作 -->
-        <div v-else class="message-actions">
-          <button @click="copyAsMarkdown(message.content)">复制MD</button>
-          <button @click="copyAsText(message.content)">复制文本</button>
-          <button @click="regenerateMessage(message.id)">重新生成</button>
-          <button @click="deleteMessage(message.id)">删除</button>
+        <div v-if="currentConversation && currentConversation.messages.length > 0" class="clear-conversation">
+          <button @click="clearConversation">清空对话记录</button>
         </div>
       </div>
-      
-      <div v-if="editingMessageId === message.id" class="message-edit">
-        <textarea v-model="editingContent"></textarea>
-        <div class="edit-actions">
-          <button @click="saveEdit(message.id)">保存</button>
-          <button @click="cancelEdit()">取消</button>
-        </div>
-      </div>
-      <div v-else class="message-content">{{ message.content }}</div>
-    </div>
-  </template>
-  
-  <div v-if="isLoading" class="message assistant-message">
-    <div class="message-content loading">正在思考...</div>
-  </div>
-  
-  <div v-if="currentConversation && currentConversation.messages.length > 0" class="clear-conversation">
-    <button @click="clearConversation">清空对话记录</button>
-  </div>
-</div>
 
       <div class="input-container">
         <textarea 
           v-model="userInput" 
           @keydown.enter.prevent="sendMessage"
-          placeholder="输入消息..."
+          placeholder="输入您的问题或指令..."
         ></textarea>
-        <button @click="sendMessage" :disabled="isLoading || !userInput.trim()">发送</button>
+        <button @click="sendMessage" :disabled="isLoading || !userInput.trim()">
+          <span class="icon">&#10148;</span>
+        </button>
       </div>
     </div>
 
@@ -720,11 +729,10 @@ export default {
     const copyTextToClipboard = (text) => {
       navigator.clipboard.writeText(text)
         .then(() => {
-          alert('已复制到剪贴板');
+          console.log('已复制到剪贴板');
         })
         .catch(err => {
           console.error('复制失败:', err);
-          alert('复制失败: ' + err);
         });
     };
 
@@ -879,10 +887,8 @@ export default {
     const clearConversation = () => {
       if (!currentConversation.value) return;
       
-      if (confirm('确定要清空所有对话记录吗？')) {
-        const conversationId = currentConversation.value.id;
-        chatStore.updateConversation(conversationId, { messages: [] });
-      }
+      const conversationId = currentConversation.value.id;
+      chatStore.updateConversation(conversationId, { messages: [] });
     };
 
     return {
@@ -919,5 +925,5 @@ export default {
 </script>
 
 <style scoped>
-/* 按照用户要求，移除CSS样式 */
+@import '../assets/styles/home.css';
 </style>

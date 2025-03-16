@@ -106,10 +106,8 @@ export default {
 
     // 删除模型
     const deleteModel = (model) => {
-      if (confirm(`确定要删除 ${model.provider} 的模型配置吗？`)) {
-        modelStore.deleteModel(model.provider);
-        loadModels();
-      }
+      modelStore.deleteModel(model.provider);
+      loadModels();
     };
 
     // 保存模型
