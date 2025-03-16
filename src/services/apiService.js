@@ -11,16 +11,25 @@ export const openApiService = {
       };
 
       console.log('准备API请求，系统提示词:', systemPrompt);
+      console.log('系统提示词类型:', typeof systemPrompt, '长度:', systemPrompt ? systemPrompt.length : 0);
+      console.log('系统提示词是否为空字符串:', systemPrompt === '');
+      console.log('系统提示词trim后是否为空:', systemPrompt && systemPrompt.trim() === '');
       console.log('收到的消息历史:', messages);
 
       // 构建消息数组，添加系统提示词
       const requestMessages = [];
-      if (systemPrompt && systemPrompt.trim() !== '') {
+      // 确保系统提示词是字符串类型并且有内容才添加
+      if (systemPrompt && typeof systemPrompt === 'string' && systemPrompt.trim() !== '') {
+        // 去除可能存在的不可见字符
+        const cleanSystemPrompt = systemPrompt.trim();
         requestMessages.push({
           role: 'system',
-          content: systemPrompt
+          content: cleanSystemPrompt
         });
-        console.log('添加了系统提示词到请求');
+        console.log('添加了系统提示词到请求:', cleanSystemPrompt);
+        console.log('添加的系统提示词长度:', cleanSystemPrompt.length);
+      } else {
+        console.log('系统提示词为空或无效，不添加到请求');
       }
 
       // 添加对话历史消息

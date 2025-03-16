@@ -35,7 +35,7 @@
       <textarea 
         id="systemPrompt" 
         v-model="systemPrompt" 
-        @change="updateSystemPrompt"
+        @input="updateSystemPrompt"
         placeholder="输入系统提示词..."
       ></textarea>
     </div>
@@ -131,18 +131,29 @@ export default {
       
       // 获取所有对话
       const conversations = chatStore.getConversations();
-      console.log("获取到的对话列表:", conversations);
+      console.log("获取到的对话列表:", conversations, "长度:", conversations.length);
       
       // 如果有对话，使用第一个；如果没有，创建新对话
       if (conversations.length > 0) {
         console.log("使用现有对话:", conversations[0].id);
         chatStore.setCurrentConversation(conversations[0].id);
-        if (currentConversation.value) {
-          systemPrompt.value = currentConversation.value.systemPrompt || '';
+        
+        // 确保当前对话设置成功
+        const currentConv = chatStore.getCurrentConversation();
+        console.log("当前对话:", currentConv);
+        
+        if (currentConv) {
+          systemPrompt.value = currentConv.systemPrompt || '';
+          console.log("从当前对话加载系统提示词:", systemPrompt.value);
+        } else {
+          console.warn("无法获取当前对话，尽管对话列表不为空");
+          // 强制再次设置当前对话
+          chatStore.setCurrentConversation(conversations[0].id);
         }
       } else {
         console.log("创建新对话");
-        createNewConversation();
+        const newConv = createNewConversation();
+        console.log("新创建的对话:", newConv);
       }
     });
 
@@ -178,8 +189,10 @@ export default {
 
     // 创建新对话
     const createNewConversation = () => {
-      chatStore.createConversation('新对话');
+      const newConv = chatStore.createConversation('新对话');
+      console.log('在Home组件中创建了新对话:', newConv.id);
       systemPrompt.value = '';
+      return newConv;
     };
 
     // 选择对话
@@ -190,10 +203,24 @@ export default {
 
     // 更新系统提示词
     const updateSystemPrompt = () => {
+      console.log("更新系统提示词被调用");
+      console.log("当前系统提示词内容:", systemPrompt.value);
+      console.log("系统提示词类型:", typeof systemPrompt.value);
+      console.log("系统提示词长度:", systemPrompt.value.length);
+      
       if (currentConversation.value) {
+        console.log("当前对话ID:", currentConversation.value.id);
+        console.log("更新前对话的系统提示词:", currentConversation.value.systemPrompt);
+        
         chatStore.updateConversation(currentConversation.value.id, {
           systemPrompt: systemPrompt.value
         });
+        
+        // 验证更新是否生效
+        const updatedConv = chatStore.getConversations().find(c => c.id === currentConversation.value.id);
+        console.log("更新后对话的系统提示词:", updatedConv.systemPrompt);
+      } else {
+        console.warn("没有当前对话，无法更新系统提示词");
       }
     };
 
@@ -275,6 +302,11 @@ export default {
       const systemPromptText = conv?.systemPrompt || '';
       
       console.log("当前对话系统提示词:", systemPromptText);
+      console.log("系统提示词类型:", typeof systemPromptText);
+      console.log("系统提示词长度:", systemPromptText.length);
+      console.log("系统提示词是否为null:", systemPromptText === null);
+      console.log("系统提示词是否为undefined:", systemPromptText === undefined);
+      console.log("系统提示词的HTML实体表示:", systemPromptText.split('').map(c => `&#${c.charCodeAt(0)};`).join(''));
       
       // 获取当前选中的模型
       const currentModel = models.value.find(m => m.provider === selectedProvider.value);
@@ -304,7 +336,7 @@ export default {
         
         console.log("消息历史:", messageHistory);
         console.log("系统提示词:", systemPromptText);
-        
+
         // 调用API
         apiService.sendChatRequest(
           currentModel,

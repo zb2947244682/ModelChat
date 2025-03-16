@@ -1,5 +1,6 @@
 // 对话存储
 const CHAT_STORAGE_KEY = 'model-chat-conversations';
+const CURRENT_CONVERSATION_KEY = 'model-chat-current-conversation';
 
 export const chatStore = {
   state: {
@@ -10,13 +11,37 @@ export const chatStore = {
   // 初始化，从localStorage加载数据
   init() {
     try {
+      // 加载对话列表
       const storedConversations = localStorage.getItem(CHAT_STORAGE_KEY);
       if (storedConversations) {
         this.state.conversations = JSON.parse(storedConversations);
+        console.log('已从localStorage加载对话列表:', this.state.conversations.length, '个对话');
+      }
+      
+      // 加载当前对话ID
+      const currentId = localStorage.getItem(CURRENT_CONVERSATION_KEY);
+      if (currentId) {
+        this.state.currentConversationId = currentId;
+        console.log('已从localStorage加载当前对话ID:', currentId);
+        
+        // 验证ID是否存在于对话列表中
+        const exists = this.state.conversations.some(conv => conv.id === currentId);
+        if (!exists) {
+          console.warn('加载的当前对话ID不存在于对话列表中，重置当前对话');
+          this.state.currentConversationId = null;
+        }
+      }
+      
+      // 若当前无对话且有对话列表，则设置第一个为当前对话
+      if (!this.state.currentConversationId && this.state.conversations.length > 0) {
+        this.state.currentConversationId = this.state.conversations[0].id;
+        console.log('初始化设置第一个对话为当前对话:', this.state.currentConversationId);
+        this._saveCurrentConversationIdToStorage();
       }
     } catch (error) {
-      console.error('Failed to load conversations from localStorage:', error);
+      console.error('加载对话数据失败:', error);
       this.state.conversations = [];
+      this.state.currentConversationId = null;
     }
   },
 
@@ -33,7 +58,34 @@ export const chatStore = {
 
   // 设置当前对话
   setCurrentConversation(conversationId) {
-    this.state.currentConversationId = conversationId;
+    console.log('设置当前对话ID:', conversationId);
+    
+    // 验证对话ID是否存在
+    const exists = this.state.conversations.some(conv => conv.id === conversationId);
+    
+    if (exists) {
+      this.state.currentConversationId = conversationId;
+      this._saveCurrentConversationIdToStorage();
+      return true;
+    } else {
+      console.error('尝试设置的对话ID不存在:', conversationId);
+      return false;
+    }
+  },
+  
+  // 保存当前对话ID到localStorage
+  _saveCurrentConversationIdToStorage() {
+    try {
+      if (this.state.currentConversationId) {
+        localStorage.setItem(CURRENT_CONVERSATION_KEY, this.state.currentConversationId);
+        console.log('已保存当前对话ID到localStorage:', this.state.currentConversationId);
+      } else {
+        localStorage.removeItem(CURRENT_CONVERSATION_KEY);
+        console.log('已从localStorage移除当前对话ID');
+      }
+    } catch (error) {
+      console.error('保存当前对话ID到localStorage失败:', error);
+    }
   },
 
   // 创建新对话
@@ -47,11 +99,16 @@ export const chatStore = {
       updatedAt: new Date().toISOString()
     };
     
+    console.log('创建新对话:', newConversation.id, '系统提示词:', systemPrompt);
+    
     this.state.conversations.push(newConversation);
     this.state.currentConversationId = newConversation.id;
     
     // 保存到localStorage
     this._saveToStorage();
+    this._saveCurrentConversationIdToStorage();
+    
+    console.log('当前对话ID设置为:', this.state.currentConversationId);
     
     return newConversation;
   },
@@ -81,12 +138,25 @@ export const chatStore = {
     if (index !== -1) {
       this.state.conversations.splice(index, 1);
       
-      // 如果删除的是当前对话，则清除当前对话
+      // 如果删除的是当前对话
       if (this.state.currentConversationId === conversationId) {
-        this.state.currentConversationId = null;
+        console.log('删除的是当前对话，需要重置');
+        
+        // 如果还有其他对话，设置第一个为当前对话
+        if (this.state.conversations.length > 0) {
+          this.state.currentConversationId = this.state.conversations[0].id;
+          console.log('设置新的当前对话:', this.state.currentConversationId);
+        } else {
+          // 没有对话了，清空当前对话ID
+          this.state.currentConversationId = null;
+          console.log('没有更多对话，清空当前对话ID');
+        }
+        
+        // 更新localStorage中的当前对话ID
+        this._saveCurrentConversationIdToStorage();
       }
       
-      // 保存到localStorage
+      // 保存对话列表到localStorage
       this._saveToStorage();
       
       return true;
