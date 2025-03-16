@@ -16,14 +16,14 @@
 
     <!-- 设置内容 -->
     <div class="settings-content">
-      <!-- 厂商部分 -->
+      <!-- 供应商部分 -->
       <div class="section">
         <div class="section-header">
-          <h2>厂商配置</h2>
-          <el-button type="primary" @click="addNewVendor">添加厂商</el-button>
+          <h2>供应商配置</h2>
+          <el-button type="primary" @click="addNewVendor">添加供应商</el-button>
         </div>
 
-        <!-- 厂商列表 -->
+        <!-- 供应商列表 -->
         <div v-if="vendors.length > 0" class="vendor-list">
           <el-collapse v-model="activeVendorNames">
             <el-collapse-item v-for="vendor in vendors" :key="vendor.id" :name="vendor.id">
@@ -36,8 +36,8 @@
               
               <div class="vendor-form">
                 <el-form :model="getVendorForm(vendor.id)" label-position="top">
-                  <el-form-item label="厂商名称">
-                    <el-input v-model="getVendorForm(vendor.id).name" placeholder="给这个厂商起个名字" />
+                  <el-form-item label="供应商名称">
+                    <el-input v-model="getVendorForm(vendor.id).name" placeholder="给这个供应商起个名字" />
                   </el-form-item>
                   
                   <el-form-item label="API类型">
@@ -63,7 +63,7 @@
                   </div>
                 </el-form>
                 
-                <!-- 该厂商下的模型 -->
+                <!-- 该供应商下的模型 -->
                 <div class="vendor-models">
                   <div class="vendor-models-header">
                     <h3>模型列表</h3>
@@ -189,8 +189,8 @@ gpt-4-turbo"
         </div>
         
         <div v-else class="empty-state">
-          <el-empty description="暂无厂商配置" />
-          <el-button type="primary" @click="addNewVendor">添加厂商</el-button>
+          <el-empty description="暂无供应商配置" />
+          <el-button type="primary" @click="addNewVendor">添加供应商</el-button>
         </div>
       </div>
       
@@ -209,11 +209,11 @@ gpt-4-turbo"
       </div>
     </div>
 
-    <!-- 添加厂商对话框 -->
-    <el-dialog v-model="vendorDialogVisible" title="添加新厂商" width="500px">
+<!-- 添加供应商对话框 -->
+    <el-dialog v-model="vendorDialogVisible" title="添加新供应商" width="500px">
       <el-form :model="newVendorForm" label-position="top">
-        <el-form-item label="厂商名称" required>
-          <el-input v-model="newVendorForm.name" placeholder="给这个厂商起个名字" />
+        <el-form-item label="供应商名称" required>
+          <el-input v-model="newVendorForm.name" placeholder="给这个供应商起个名字" />
         </el-form-item>
         
         <el-form-item label="API类型" required>
@@ -238,12 +238,90 @@ gpt-4-turbo"
             :placeholder="getApiPathPlaceholder(newVendorForm.apiType)" 
           />
         </el-form-item>
+        
+        <el-divider>模型信息</el-divider>
+        
+        <el-form-item label="模型名称" required>
+          <el-input v-model="newVendorForm.modelName" placeholder="给这个模型起个名字" />
+        </el-form-item>
+        
+        <el-form-item label="API密钥" required>
+          <el-input 
+            v-model="newVendorForm.apiKey" 
+            placeholder="输入您的API密钥" 
+            show-password 
+          />
+        </el-form-item>
+        
+        <el-form-item label="模型列表" required>
+          <el-input 
+            v-model="newVendorForm.model" 
+            type="textarea"
+            :rows="3"
+            :placeholder="'输入模型列表，一行一个，例如:\n' + getModelPlaceholder(newVendorForm.apiType)" 
+          />
+        </el-form-item>
+        
+        <el-collapse>
+          <el-collapse-item title="高级设置">
+            <el-form-item label="Temperature">
+              <div class="slider-with-input">
+                <el-slider 
+                  v-model="newVendorForm.temperature" 
+                  :min="0" 
+                  :max="1" 
+                  :step="0.1" 
+                  style="flex: 1" 
+                />
+                <el-input-number 
+                  v-model="newVendorForm.temperature" 
+                  :min="0" 
+                  :max="1" 
+                  :step="0.1" 
+                  controls-position="right" 
+                  style="width: 120px; margin-left: 16px" 
+                />
+              </div>
+            </el-form-item>
+            
+            <el-form-item label="最大Token数">
+              <el-input-number 
+                v-model="newVendorForm.maxTokens" 
+                :min="1" 
+                :max="100000" 
+                :step="1" 
+                controls-position="right" 
+                style="width: 100%" 
+              />
+            </el-form-item>
+            
+            <el-form-item label="Top P">
+              <div class="slider-with-input">
+                <el-slider 
+                  v-model="newVendorForm.topP" 
+                  :min="0" 
+                  :max="1" 
+                  :step="0.1" 
+                  style="flex: 1" 
+                />
+                <el-input-number 
+                  v-model="newVendorForm.topP" 
+                  :min="0" 
+                  :max="1" 
+                  :step="0.1" 
+                  controls-position="right" 
+                  style="width: 120px; margin-left: 16px" 
+                />
+              </div>
+            </el-form-item>
+          </el-collapse-item>
+        </el-collapse>
       </el-form>
       
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="vendorDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="createVendor">创建</el-button>
+          <el-button type="primary" @click="createVendorWithModel">创建</el-button>
         </div>
       </template>
     </el-dialog>
@@ -333,12 +411,18 @@ const modelForms = reactive({})
 const selectedVendorId = ref(null)
 const darkMode = ref(false)
 
-// 新厂商表单
+// 新供应商表单
 const newVendorForm = reactive({
   name: '',
   apiType: 'openai',
   apiUrl: '',
-  apiPath: ''
+  apiPath: '',
+  modelName: '',
+  apiKey: '',
+  model: '',
+  temperature: 0.7,
+  maxTokens: 2000,
+  topP: 1
 })
 
 // 新模型表单
@@ -352,11 +436,28 @@ const newModelForm = reactive({
 })
 
 // 计算属性
-const vendors = computed(() => modelStore.vendors)
-const models = computed(() => modelStore.models)
+const vendors = computed(() => modelStore.providers)
+const models = computed(() => {
+  // 从每个供应商中提取模型列表
+  const allModels = []
+  vendors.value.forEach(provider => {
+    if (provider.model_list && provider.model_list.length > 0) {
+      provider.model_list.forEach(modelName => {
+        allModels.push({
+          id: `${provider.id}_${modelName}`,
+          name: modelName,
+          vendorId: provider.id,
+          apiKey: provider.api_key,
+          model: modelName
+        })
+      })
+    }
+  })
+  return allModels
+})
 const isDarkMode = computed(() => modelStore.isDarkMode)
 
-// 获取选中厂商的API类型
+// 获取选中供应商的API类型
 const selectedVendorApiType = computed(() => {
   if (!selectedVendorId.value) return 'custom'
   const vendor = vendors.value.find(v => v.id === selectedVendorId.value)
@@ -375,7 +476,7 @@ const toggleTheme = () => {
   document.documentElement.setAttribute('data-theme', modelStore.theme)
 }
 
-// 获取指定厂商的所有模型
+// 获取指定供应商的所有模型
 const getVendorModels = (vendorId) => {
   return models.value.filter(model => model.vendorId === vendorId)
 }
@@ -423,20 +524,26 @@ const getModelPlaceholder = (apiType) => {
   }
 }
 
-// 添加新厂商
+// 添加新供应商
 const addNewVendor = () => {
   // 重置表单
   Object.assign(newVendorForm, {
     name: '',
     apiType: 'openai',
     apiUrl: getApiUrlPlaceholder('openai'),
-    apiPath: getApiPathPlaceholder('openai')
+    apiPath: getApiPathPlaceholder('openai'),
+    modelName: '',
+    apiKey: '',
+    model: getModelPlaceholder('openai'),
+    temperature: 0.7,
+    maxTokens: 2000,
+    topP: 1
   })
   
   vendorDialogVisible.value = true
 }
 
-// 创建厂商
+// 创建供应商
 const createVendor = () => {
   // 验证必填字段
   if (!newVendorForm.name || !newVendorForm.apiUrl || !newVendorForm.apiPath) {
@@ -444,38 +551,44 @@ const createVendor = () => {
     return
   }
   
-  // 添加新厂商
-  const vendorId = modelStore.addVendor({
-    name: newVendorForm.name,
-    apiType: newVendorForm.apiType,
-    apiUrl: newVendorForm.apiUrl,
-    apiPath: newVendorForm.apiPath
+  // 添加新供应商
+  const vendorId = modelStore.addProvider({
+    provider: newVendorForm.name,
+    api_mode: newVendorForm.apiType,
+    api_endpoint: newVendorForm.apiUrl,
+    api_path: newVendorForm.apiPath
   })
   
   // 初始化表单
   initVendorForm(vendorId)
   
   vendorDialogVisible.value = false
-  ElMessage.success('厂商添加成功')
+  ElMessage.success('供应商添加成功')
   
-  // 展开新添加的厂商
+  // 展开新添加的供应商
   activeVendorNames.value.push(vendorId)
 }
 
-// 保存厂商
+// 保存供应商
 const saveVendor = (vendorId) => {
-  modelStore.updateVendor(vendorId, vendorForms[vendorId])
+  const formData = vendorForms[vendorId]
+  modelStore.updateProvider(vendorId, {
+    provider: formData.name,
+    api_mode: formData.apiType,
+    api_endpoint: formData.apiUrl,
+    api_path: formData.apiPath
+  })
   ElMessage.success('保存成功')
 }
 
-// 删除厂商
+// 删除供应商
 const deleteVendor = (vendorId) => {
-  ElMessageBox.confirm('确定要删除这个厂商配置吗？这将同时删除该厂商下的所有模型！', '提示', {
+  ElMessageBox.confirm('确定要删除这个供应商配置吗？这将同时删除该供应商下的所有模型！', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
-    modelStore.deleteVendor(vendorId)
+    modelStore.deleteProvider(vendorId)
     delete vendorForms[vendorId]
     ElMessage.success('删除成功')
   }).catch(() => {})
@@ -506,30 +619,50 @@ const createModel = () => {
     return
   }
   
-  // 添加新模型
-  const modelId = modelStore.addModel({
-    name: newModelForm.name,
-    vendorId: selectedVendorId.value,
-    apiKey: newModelForm.apiKey,
-    model: newModelForm.model,
-    temperature: newModelForm.temperature,
-    maxTokens: newModelForm.maxTokens,
-    topP: newModelForm.topP
-  })
+  // 找到对应的供应商
+  const provider = vendors.value.find(v => v.id === selectedVendorId.value)
+  if (!provider) {
+    ElMessage.error('供应商不存在')
+    return
+  }
   
-  // 初始化表单和高级设置状态
-  initModelForm(modelId)
+  // 更新供应商的模型列表和API密钥
+  const modelList = newModelForm.model.split('\n').filter(m => m.trim())
+  
+  modelStore.updateProvider(selectedVendorId.value, {
+    api_key: newModelForm.apiKey,
+    model_list: [...(provider.model_list || []), ...modelList],
+    temperature: newModelForm.temperature,
+    max_tokens: newModelForm.maxTokens,
+    top_p: newModelForm.topP
+  })
   
   modelDialogVisible.value = false
   ElMessage.success('模型添加成功')
   
-  // 展开新添加的模型
-  activeModelNames.value.push(modelId)
+  // 为每个新模型创建一个ID并展开
+  modelList.forEach(modelName => {
+    const modelId = `${selectedVendorId.value}_${modelName}`
+    activeModelNames.value.push(modelId)
+  })
 }
 
 // 保存模型
 const saveModel = (modelId) => {
-  modelStore.updateModel(modelId, modelForms[modelId])
+  const [providerId, modelName] = modelId.split('_')
+  const provider = vendors.value.find(v => v.id === providerId)
+  if (!provider) return
+  
+  const formData = modelForms[modelId]
+  
+  // 更新供应商的API密钥和高级设置
+  modelStore.updateProvider(providerId, {
+    api_key: formData.apiKey,
+    temperature: formData.temperature,
+    max_tokens: formData.maxTokens,
+    top_p: formData.topP
+  })
+  
   ElMessage.success('保存成功')
 }
 
@@ -540,14 +673,24 @@ const deleteModel = (modelId) => {
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
-    modelStore.deleteModel(modelId)
+    const [providerId, modelName] = modelId.split('_')
+    const provider = vendors.value.find(v => v.id === providerId)
+    if (!provider) return
+    
+    // 从供应商的模型列表中移除该模型
+    const updatedModelList = (provider.model_list || []).filter(m => m !== modelName)
+    
+    modelStore.updateProvider(providerId, {
+      model_list: updatedModelList
+    })
+    
     delete modelForms[modelId]
     delete advancedVisible[modelId]
     ElMessage.success('删除成功')
   }).catch(() => {})
 }
 
-// 获取厂商表单，确保表单对象存在
+// 获取供应商表单，确保表单对象存在
 const getVendorForm = (vendorId) => {
   if (!vendorForms[vendorId]) {
     const vendor = vendors.value.find(v => v.id === vendorId)
@@ -565,7 +708,7 @@ const getVendorForm = (vendorId) => {
   return vendorForms[vendorId]
 }
 
-// 初始化厂商表单
+// 初始化供应商表单
 const initVendorForm = (vendorId) => {
   getVendorForm(vendorId)
 }
@@ -596,7 +739,7 @@ const initModelForm = (modelId) => {
   getModelForm(modelId)
 }
 
-// 初始化所有厂商和模型表单
+// 初始化所有供应商和模型表单
 const initAllForms = () => {
   vendors.value.forEach(vendor => {
     initVendorForm(vendor.id)
@@ -607,10 +750,56 @@ const initAllForms = () => {
   })
 }
 
+// 创建供应商和模型一起
+const createVendorWithModel = () => {
+  // 验证必填字段
+  if (!newVendorForm.name || !newVendorForm.apiUrl || !newVendorForm.apiPath ||
+      !newVendorForm.modelName || !newVendorForm.apiKey || !newVendorForm.model) {
+    ElMessage.error('请填写所有必填字段')
+    return
+  }
+  
+  // 解析模型列表
+  const modelList = newVendorForm.model.split('\n').filter(m => m.trim())
+  if (modelList.length === 0) {
+    ElMessage.error('请至少输入一个模型名称')
+    return
+  }
+  
+  // 添加新供应商
+  const vendorId = modelStore.addProvider({
+    provider: newVendorForm.name,
+    api_mode: newVendorForm.apiType,
+    api_endpoint: newVendorForm.apiUrl,
+    api_path: newVendorForm.apiPath,
+    api_key: newVendorForm.apiKey,
+    model_list: modelList,
+    temperature: newVendorForm.temperature || 0.7,
+    max_tokens: newVendorForm.maxTokens || 2000,
+    top_p: newVendorForm.topP || 1
+  })
+  
+  // 初始化表单
+  initVendorForm(vendorId)
+  
+  vendorDialogVisible.value = false
+  ElMessage.success('供应商和模型添加成功')
+  
+  // 展开新添加的供应商
+  activeVendorNames.value.push(vendorId)
+  
+  // 为每个模型创建一个ID并展开第一个
+  if (modelList.length > 0) {
+    const firstModelId = `${vendorId}_${modelList[0]}`
+    activeModelNames.value.push(firstModelId)
+  }
+}
+
 // 监听API类型变化，自动填充默认值
 watch(() => newVendorForm.apiType, (newType) => {
   newVendorForm.apiUrl = getApiUrlPlaceholder(newType)
   newVendorForm.apiPath = getApiPathPlaceholder(newType)
+  newVendorForm.model = getModelPlaceholder(newType)
 })
 
 // 组件挂载时初始化
@@ -620,11 +809,11 @@ onMounted(() => {
   // 设置深色模式状态
   darkMode.value = modelStore.theme === 'dark'
   
-  // 如果有厂商，默认展开第一个
+  // 如果有供应商，默认展开第一个
   if (vendors.value.length > 0) {
     activeVendorNames.value = [vendors.value[0].id]
     
-    // 如果第一个厂商有模型，默认展开第一个模型
+    // 如果第一个供应商有模型，默认展开第一个模型
     const firstVendorModels = getVendorModels(vendors.value[0].id)
     if (firstVendorModels.length > 0) {
       activeModelNames.value = [firstVendorModels[0].id]
@@ -713,7 +902,7 @@ onMounted(() => {
   transition: color 0.3s ease;
 }
 
-/* 厂商样式 */
+/* 供应商样式 */
 .vendor-list {
   margin-top: 20px;
 }

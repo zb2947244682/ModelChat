@@ -6,18 +6,18 @@ export default {
    */
   async sendMessage(modelConfig, messages) {
     try {
-      const { apiType, apiUrl, apiPath, apiKey, model, temperature, maxTokens, topP } = modelConfig
+      const { apiMode, apiUrl, apiPath, apiKey, model, temperature, maxTokens, topP } = modelConfig
       
       let requestData = {}
       let headers = {
         'Content-Type': 'application/json'
       }
       
-      // 处理模型名称，如果是多行，只取第一行
-      const modelName = model.split('\n')[0].trim()
+      // 处理模型名称
+      const modelName = model
       
-      // 根据不同的API类型构建不同的请求
-      if (apiType === 'openai') {
+      // 根据不同的API模式构建不同的请求
+      if (apiMode === 'OpenAPI标准接口') {
         headers['Authorization'] = `Bearer ${apiKey}`
         requestData = {
           model: modelName,
@@ -26,8 +26,9 @@ export default {
           max_tokens: parseInt(maxTokens) || 2000,
           top_p: parseFloat(topP) || 1
         }
-      } else if (apiType === 'anthropic') {
+      } else if (apiMode === 'Anthropic') {
         headers['x-api-key'] = apiKey
+        headers['anthropic-version'] = '2023-06-01'
         requestData = {
           model: modelName,
           messages: messages,
@@ -35,7 +36,7 @@ export default {
           max_tokens: parseInt(maxTokens) || 2000,
           top_p: parseFloat(topP) || 1
         }
-      } else if (apiType === 'gemini') {
+      } else if (apiMode === 'Gemini') {
         headers['x-goog-api-key'] = apiKey
         requestData = {
           contents: messages.map(msg => ({
@@ -66,11 +67,11 @@ export default {
       // 解析不同API的响应
       let responseText = ''
       
-      if (apiType === 'openai') {
+      if (apiMode === 'OpenAPI标准接口') {
         responseText = response.data.choices[0].message.content
-      } else if (apiType === 'anthropic') {
+      } else if (apiMode === 'Anthropic') {
         responseText = response.data.content[0].text
-      } else if (apiType === 'gemini') {
+      } else if (apiMode === 'Gemini') {
         responseText = response.data.candidates[0].content.parts[0].text
       } else {
         // 尝试通用解析，可能需要根据实际API调整
@@ -102,18 +103,39 @@ export default {
    */
   async sendMessageStream(modelConfig, messages, onChunk, onComplete, onError) {
     try {
-      const { apiType, apiUrl, apiPath, apiKey, model, temperature, maxTokens, topP } = modelConfig
+      if (!modelConfig) {
+        throw new Error('模型配置不存在')
+      }
+      
+      const { apiMode, apiUrl, apiPath, apiKey, model, temperature, maxTokens, topP } = modelConfig
+      
+      // 验证必要的API参数
+      if (!apiUrl) {
+        throw new Error('API URL未配置')
+      }
+      
+      if (!apiPath) {
+        throw new Error('API路径未配置')
+      }
+      
+      if (!apiKey) {
+        throw new Error('API密钥未配置')
+      }
+      
+      if (!model) {
+        throw new Error('模型未配置')
+      }
       
       let requestData = {}
       let headers = {
         'Content-Type': 'application/json'
       }
       
-      // 处理模型名称，如果是多行，只取第一行
-      const modelName = model.split('\n')[0].trim()
+      // 处理模型名称
+      const modelName = model
       
-      // 根据不同的API类型构建不同的请求
-      if (apiType === 'openai') {
+      // 根据不同的API模式构建不同的请求
+      if (apiMode === 'OpenAPI标准接口') {
         headers['Authorization'] = `Bearer ${apiKey}`
         requestData = {
           model: modelName,
@@ -123,7 +145,7 @@ export default {
           top_p: parseFloat(topP) || 1,
           stream: true // 启用流式输出
         }
-      } else if (apiType === 'anthropic') {
+      } else if (apiMode === 'Anthropic') {
         headers['x-api-key'] = apiKey
         headers['anthropic-version'] = '2023-06-01'
         requestData = {
@@ -134,7 +156,7 @@ export default {
           top_p: parseFloat(topP) || 1,
           stream: true // 启用流式输出
         }
-      } else if (apiType === 'gemini') {
+      } else if (apiMode === 'Gemini') {
         headers['x-goog-api-key'] = apiKey
         requestData = {
           contents: messages.map(msg => ({
@@ -193,8 +215,8 @@ export default {
             
             const chunk = decoder.decode(value, { stream: true })
             
-            // 根据不同API类型解析流式响应
-            if (apiType === 'openai') {
+            // 根据不同API模式解析流式响应
+            if (apiMode === 'OpenAPI标准接口') {
               // OpenAI格式: data: {"id":"...","object":"...","choices":[{"delta":{"content":"Hello"},"index":0}]}
               const lines = chunk.split('\n')
               for (const line of lines) {
@@ -211,7 +233,7 @@ export default {
                   }
                 }
               }
-            } else if (apiType === 'anthropic') {
+            } else if (apiMode === 'Anthropic') {
               // Anthropic格式: {"type":"content_block_delta","delta":{"text":"Hello"}}
               const lines = chunk.split('\n')
               for (const line of lines) {
@@ -228,7 +250,7 @@ export default {
                   }
                 }
               }
-            } else if (apiType === 'gemini') {
+            } else if (apiMode === 'Gemini') {
               // Gemini格式: {"candidates":[{"content":{"parts":[{"text":"Hello"}]}}]}
               try {
                 const data = JSON.parse(chunk)

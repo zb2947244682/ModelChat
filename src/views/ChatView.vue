@@ -6,20 +6,34 @@
         <el-icon><ChatLineRound /></el-icon>
       </div>
       <div class="title">
-        {{ currentModelName }}
+        {{ currentProviderName }}
       </div>
       <div class="model-selector">
-        <el-dropdown @command="handleModelChange" trigger="click">
+        <el-dropdown @command="handleProviderChange" trigger="click">
           <span class="model-dropdown">
-            {{ currentModelType }} <el-icon><ArrowDown /></el-icon>
+            供应商 <el-icon><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item v-for="model in models" :key="model.id" :command="model.id">
-                {{ model.name }}
+              <el-dropdown-item v-for="provider in providers" :key="provider.id" :command="provider.id">
+                {{ provider.provider }}
               </el-dropdown-item>
               <el-dropdown-item divided command="settings">
                 <el-icon><Setting /></el-icon> 设置
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
+      <div class="model-selector ml-2">
+        <el-dropdown @command="handleModelChange" trigger="click">
+          <span class="model-dropdown">
+            {{ currentModel || '选择模型' }} <el-icon><ArrowDown /></el-icon>
+          </span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item v-for="modelName in currentProviderModels" :key="modelName" :command="modelName">
+                {{ modelName }}
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -98,8 +112,8 @@
       
       <!-- 无模型配置提示 -->
       <el-empty 
-        v-if="models.length === 0 && messages.length === 0"
-        description="未配置任何模型"
+        v-if="providers.length === 0 && messages.length === 0"
+        description="未配置任何大模型供应商"
         class="no-models-tip"
       >
         <el-button type="primary" @click="goToSettings">去配置</el-button>
@@ -113,13 +127,13 @@
           v-model="userInput"
           type="textarea"
           :rows="1"
-          :placeholder="models.length > 0 ? 'Ask me anything...' : '请先配置模型'"
+          :placeholder="providers.length > 0 ? 'Ask me anything...' : '请先配置大模型供应商'"
           resize="none"
           @keyup.enter.native="sendMessage"
-          :disabled="models.length === 0 || isLoading"
+          :disabled="providers.length === 0 || isLoading"
           ref="inputEl"
         />
-        <div class="send-button" @click="sendMessage" :class="{ disabled: models.length === 0 || isLoading }">
+        <div class="send-button" @click="sendMessage" :class="{ disabled: providers.length === 0 || isLoading }">
           <el-icon v-if="!isLoading"><Position /></el-icon>
           <el-icon v-else class="loading"><Loading /></el-icon>
         </div>
@@ -137,25 +151,17 @@
           <span>新对话</span>
         </div>
         
-        <!-- 厂商选择 -->
+        <!-- 对话列表 -->
         <div class="sidebar-section">
-          <div class="sidebar-section-title">厂商</div>
-          <div class="sidebar-item" v-for="vendor in vendors" :key="vendor.id" 
-               :class="{ active: currentVendor === vendor.id }"
-               @click="selectVendor(vendor.id)">
-            <el-icon><Shop /></el-icon>
-            <span>{{ vendor.name }}</span>
-          </div>
-        </div>
-        
-        <!-- 模型选择 -->
-        <div class="sidebar-section" v-if="currentVendorModels.length > 0">
-          <div class="sidebar-section-title">模型</div>
-          <div class="sidebar-item" v-for="model in currentVendorModels" :key="model.id" 
-               :class="{ active: currentModel === model.id }"
-               @click="selectModel(model.id)">
+          <div class="sidebar-section-title">对话历史</div>
+          <div class="sidebar-item" v-for="(conversation, id) in modelStore.conversations" :key="id" 
+               :class="{ active: modelStore.currentConversation === id }"
+               @click="selectConversation(id)">
             <el-icon><ChatDotRound /></el-icon>
-            <span>{{ model.name }}</span>
+            <span>{{ getConversationTitle(conversation) }}</span>
+          </div>
+          <div v-if="Object.keys(modelStore.conversations).length === 0" class="sidebar-empty">
+            暂无对话历史
           </div>
         </div>
         
@@ -195,33 +201,22 @@ const streamingMessageId = ref(null) // 当前正在流式输出的消息ID
 
 // 计算属性
 const currentModel = computed(() => modelStore.currentModel)
-const currentVendor = computed(() => modelStore.currentVendor)
-const models = computed(() => modelStore.models)
-const vendors = computed(() => modelStore.vendors)
+const currentProvider = computed(() => modelStore.currentProvider)
+const providers = computed(() => modelStore.providers)
 const isDarkMode = computed(() => modelStore.isDarkMode)
 
-const currentVendorModels = computed(() => {
-  if (!currentVendor.value) return []
-  return models.value.filter(model => model.vendorId === currentVendor.value)
-})
+const currentProviderModels = computed(() => modelStore.currentProviderModels)
 
-const currentModelName = computed(() => {
-  const model = models.value.find(m => m.id === currentModel.value)
-  return model ? model.name : 'AI Chat'
-})
-
-const currentModelType = computed(() => {
-  const model = models.value.find(m => m.id === currentModel.value)
-  if (!model) return 'AI'
-  // 如果模型是多行，只显示第一行
-  return model.model.split('\n')[0]
+const currentProviderName = computed(() => {
+  const provider = providers.value.find(p => p.id === currentProvider.value)
+  return provider ? provider.provider : 'AI Chat'
 })
 
 const messages = computed(() => {
-  if (!currentModel.value || !modelStore.conversations[currentModel.value]) {
+  if (!modelStore.currentConversation || !modelStore.conversations[modelStore.currentConversation]) {
     return []
   }
-  return modelStore.conversations[currentModel.value].messages
+  return modelStore.conversations[modelStore.currentConversation].messages
 })
 
 // 方法
@@ -233,27 +228,42 @@ const goToSettings = () => {
   router.push('/settings')
 }
 
-const handleModelChange = (command) => {
+const handleProviderChange = (command) => {
   if (command === 'settings') {
     goToSettings()
   } else {
-    modelStore.setCurrentModel(command)
+    modelStore.setCurrentProvider(command)
   }
 }
 
-const selectVendor = (vendorId) => {
-  modelStore.setCurrentVendor(vendorId)
+const handleModelChange = (command) => {
+  modelStore.setCurrentModel(command)
 }
 
-const selectModel = (modelId) => {
-  modelStore.setCurrentModel(modelId)
+const selectConversation = (conversationId) => {
+  modelStore.setCurrentConversation(conversationId)
   sidebarVisible.value = false
 }
 
-const newConversation = () => {
-  if (currentModel.value) {
-    modelStore.clearConversation(currentModel.value)
+// 获取对话标题
+const getConversationTitle = (conversation) => {
+  if (!conversation || !conversation.messages || conversation.messages.length === 0) {
+    return '新对话'
   }
+  
+  // 查找第一条用户消息作为标题
+  const firstUserMessage = conversation.messages.find(msg => msg.role === 'user')
+  if (firstUserMessage) {
+    // 截取前20个字符作为标题
+    const title = firstUserMessage.content.trim()
+    return title.length > 20 ? title.substring(0, 20) + '...' : title
+  }
+  
+  return '新对话'
+}
+
+const newConversation = () => {
+  modelStore.createNewConversation()
   sidebarVisible.value = false
 }
 
@@ -296,27 +306,20 @@ const handleMessageAction = (action, index) => {
       if (message.role === 'user') {
         userInput.value = message.content
         // 删除此消息之后的所有消息
-        if (currentModel.value && modelStore.conversations[currentModel.value]) {
-          modelStore.conversations[currentModel.value].messages = 
-            modelStore.conversations[currentModel.value].messages.slice(0, index)
+        if (modelStore.currentConversation) {
+          modelStore.deleteMessagesAfter(index)
         }
       }
       break
       
     case 'delete':
-      if (currentModel.value && modelStore.conversations[currentModel.value]) {
+      if (modelStore.currentConversation) {
         // 如果删除的是用户消息，同时删除下一条AI回复
         if (message.role === 'user' && index + 1 < messages.value.length && 
             messages.value[index + 1].role === 'assistant') {
-          modelStore.conversations[currentModel.value].messages = [
-            ...modelStore.conversations[currentModel.value].messages.slice(0, index),
-            ...modelStore.conversations[currentModel.value].messages.slice(index + 2)
-          ]
+          modelStore.deleteMessages(index, 2) // 删除两条消息
         } else {
-          modelStore.conversations[currentModel.value].messages = [
-            ...modelStore.conversations[currentModel.value].messages.slice(0, index),
-            ...modelStore.conversations[currentModel.value].messages.slice(index + 1)
-          ]
+          modelStore.deleteMessages(index, 1) // 删除一条消息
         }
       }
       break
@@ -339,18 +342,15 @@ const cancelEdit = () => {
 
 // 保存编辑的消息
 const saveEdit = () => {
-  if (editingIndex.value >= 0 && currentModel.value && 
-      modelStore.conversations[currentModel.value]) {
+  if (editingIndex.value >= 0 && modelStore.currentConversation) {
     // 更新消息内容
-    modelStore.conversations[currentModel.value].messages[editingIndex.value].content = 
-      editingContent.value
+    modelStore.updateMessageContent(editingIndex.value, editingContent.value)
     
     // 如果编辑的是用户消息，删除之后的AI回复
-    if (modelStore.conversations[currentModel.value].messages[editingIndex.value].role === 'user' && 
-        editingIndex.value + 1 < modelStore.conversations[currentModel.value].messages.length && 
-        modelStore.conversations[currentModel.value].messages[editingIndex.value + 1].role === 'assistant') {
-      modelStore.conversations[currentModel.value].messages = 
-        modelStore.conversations[currentModel.value].messages.slice(0, editingIndex.value + 1)
+    if (messages.value[editingIndex.value].role === 'user' && 
+        editingIndex.value + 1 < messages.value.length && 
+        messages.value[editingIndex.value + 1].role === 'assistant') {
+      modelStore.deleteMessagesAfter(editingIndex.value)
     }
     
     // 重置编辑状态
@@ -359,31 +359,31 @@ const saveEdit = () => {
   }
 }
 
-// 发送消息（非流式）
-const sendMessage = async () => {
-  if (!userInput.value.trim() || isLoading.value || !currentModel.value) return
-  
-  const userMessage = {
-    role: 'user',
-    content: userInput.value.trim()
-  }
-  
-  // 添加用户消息
-  modelStore.addMessage(currentModel.value, userMessage)
-  userInput.value = ''
-  
-  // 滚动到底部
-  await nextTick()
-  if (messagesContainer.value) {
-    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-  }
-  
-  // 获取当前模型配置
-  const modelConfig = models.value.find(m => m.id === currentModel.value)
-  if (!modelConfig) {
-    ElMessage.error('未找到模型配置')
-    return
-  }
+  // 发送消息（非流式）
+  const sendMessage = async () => {
+    if (!userInput.value.trim() || isLoading.value || !currentModel.value) return
+    
+    const userMessage = {
+      role: 'user',
+      content: userInput.value.trim()
+    }
+    
+    // 添加用户消息
+    modelStore.addMessage(userMessage)
+    userInput.value = ''
+    
+    // 滚动到底部
+    await nextTick()
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+    }
+    
+    // 获取当前模型配置（包含供应商信息）
+    const modelConfig = modelStore.currentModelConfig
+    if (!modelConfig) {
+      ElMessage.error('未找到模型配置')
+      return
+    }
   
   isLoading.value = true
   
@@ -396,7 +396,7 @@ const sendMessage = async () => {
       content: '',
       streaming: true
     }
-    modelStore.addMessage(currentModel.value, placeholderMessage)
+    modelStore.addMessage(placeholderMessage)
     streamingMessageId.value = placeholderId
     
     // 滚动到底部
@@ -408,12 +408,12 @@ const sendMessage = async () => {
     // 使用流式API
     await apiService.sendMessageStream(
       modelConfig,
-      modelStore.conversations[currentModel.value].messages.slice(0, -1), // 不包括占位消息
+      modelStore.conversations[modelStore.currentConversation].messages.slice(0, -1), // 不包括占位消息
       
       // 处理每个文本块
       (chunk) => {
-        if (currentModel.value && modelStore.conversations[currentModel.value]) {
-          const messages = modelStore.conversations[currentModel.value].messages
+        if (modelStore.currentConversation && modelStore.conversations[modelStore.currentConversation]) {
+          const messages = modelStore.conversations[modelStore.currentConversation].messages
           const streamingMsgIndex = messages.findIndex(msg => msg.id === placeholderId)
           
           if (streamingMsgIndex !== -1) {
@@ -429,8 +429,8 @@ const sendMessage = async () => {
       
       // 完成回调
       (finalMessage) => {
-        if (currentModel.value && modelStore.conversations[currentModel.value]) {
-          const messages = modelStore.conversations[currentModel.value].messages
+        if (modelStore.currentConversation && modelStore.conversations[modelStore.currentConversation]) {
+          const messages = modelStore.conversations[modelStore.currentConversation].messages
           const streamingMsgIndex = messages.findIndex(msg => msg.id === placeholderId)
           
           if (streamingMsgIndex !== -1) {
@@ -451,8 +451,8 @@ const sendMessage = async () => {
       (error) => {
         console.error('流式API请求错误:', error)
         
-        if (currentModel.value && modelStore.conversations[currentModel.value]) {
-          const messages = modelStore.conversations[currentModel.value].messages
+        if (modelStore.currentConversation && modelStore.conversations[modelStore.currentConversation]) {
+          const messages = modelStore.conversations[modelStore.currentConversation].messages
           const streamingMsgIndex = messages.findIndex(msg => msg.id === placeholderId)
           
           if (streamingMsgIndex !== -1) {
@@ -953,6 +953,17 @@ onMounted(() => {
 
 .dark-mode .sidebar-item.settings {
   border-top-color: #444;
+}
+
+.sidebar-empty {
+  padding: 12px 16px;
+  color: #888;
+  font-style: italic;
+  text-align: center;
+}
+
+.dark-mode .sidebar-empty {
+  color: #aaa;
 }
 
 /* 响应式设计 */
