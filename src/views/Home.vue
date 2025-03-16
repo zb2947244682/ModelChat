@@ -74,23 +74,23 @@
             <!-- 用户和助手消息 -->
             <div v-for="message in currentConversation.messages" :key="message.id" 
               :class="['message', message.role === 'user' ? 'user-message' : 'assistant-message']">
-              <div class="message-header">
+              <!-- <div class="message-header">
                 <div class="message-role">{{ message.role === 'user' ? '用户' : 'AI助手' }}</div>
-              </div>
+              </div> -->
               
               <div v-if="editingMessageId === message.id" class="message-edit">
                 <textarea v-model="editingContent"></textarea>
                 <div class="edit-actions">
-                  <button @click="saveEdit(message.id)">保存</button>
-                  <button @click="cancelEdit()">取消</button>
+                  <button @click="saveEdit(message.id)">💾</button>
+                  <button @click="cancelEdit()">❌</button>
                 </div>
               </div>
-              <div v-else class="message-content">{{ message.content }}</div>
+              <div v-else class="message-content" v-html="message.role === 'assistant' ? renderMarkdown(message.content) : message.content"></div>
               
               <!-- 用户消息操作 -->
               <div v-if="message.role === 'user'" class="message-actions visible">
-                <button @click="editMessage(message)" title="编辑">✏️</button>
-                <button @click="deleteMessage(message.id)" title="删除">🗑️</button>
+                <button v-if="editingMessageId !== message.id" @click="editMessage(message)" title="编辑">✏️</button>
+                <!-- <button @click="deleteMessage(message.id)" title="删除">🗑️</button> -->
               </div>
               
               <!-- 助手消息操作 -->
@@ -187,6 +187,7 @@
 import { onMounted, onUnmounted } from 'vue';
 import ChatList from '../components/ChatList.vue';
 import { useHomeLogic } from '../logic/homeLogic';
+import { marked } from 'marked';
 
 export default {
   name: 'Home',
@@ -207,6 +208,17 @@ export default {
         cleanupEventListeners();
       });
     });
+
+    // Markdown渲染函数
+    const renderMarkdown = (content) => {
+      if (!content) return '';
+      try {
+        return marked(content);
+      } catch (error) {
+        console.error('Markdown渲染错误:', error);
+        return content;
+      }
+    };
 
     return {
       // 状态
@@ -233,6 +245,7 @@ export default {
       isModelSelectOpen: homeLogic.isModelSelectOpen,
       
       // 方法
+      renderMarkdown,
       onProviderChange: homeLogic.onProviderChange,
       createNewConversation: homeLogic.createNewConversation,
       selectConversation: homeLogic.selectConversation,
@@ -264,4 +277,196 @@ export default {
 
 <style scoped>
 @import '../assets/styles/home.css';
+
+/* Markdown样式 */
+.message-content {
+  white-space: normal;
+}
+
+.message-content :deep(h1),
+.message-content :deep(h2),
+.message-content :deep(h3),
+.message-content :deep(h4),
+.message-content :deep(h5),
+.message-content :deep(h6) {
+  margin-top: 0.7em;
+  margin-bottom: 0.4em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.message-content :deep(h1) {
+  font-size: 1.5em;
+}
+
+.message-content :deep(h2) {
+  font-size: 1.3em;
+}
+
+.message-content :deep(h3) {
+  font-size: 1.1em;
+}
+
+.message-content :deep(p) {
+  margin-top: 0;
+  margin-bottom: 0.6em;
+  line-height: 1.5;
+}
+
+/* 调整元素之间的间距 */
+.message-content :deep(h1) + p,
+.message-content :deep(h2) + p,
+.message-content :deep(h3) + p,
+.message-content :deep(h4) + p,
+.message-content :deep(h5) + p,
+.message-content :deep(h6) + p {
+  margin-top: 0.2em;
+}
+
+.message-content :deep(p) + ul,
+.message-content :deep(p) + ol {
+  margin-top: 0.2em;
+}
+
+.message-content :deep(ul) + p,
+.message-content :deep(ol) + p {
+  margin-top: 0.3em;
+}
+
+.message-content :deep(pre) + p,
+.message-content :deep(p) + pre {
+  margin-top: 0.5em;
+}
+
+.message-content :deep(ul),
+.message-content :deep(ol) {
+  margin-top: 0;
+  margin-bottom: 0.6em;
+  padding-left: 1.5em;
+}
+
+.message-content :deep(li) {
+  margin-bottom: 0.3em;
+  line-height: 1.5;
+}
+
+.message-content :deep(li p) {
+  margin: 1em 0;
+}
+
+.message-content :deep(li + li) {
+  margin-top: 0.1em;
+}
+
+/* 嵌套列表样式 */
+.message-content :deep(ul ul),
+.message-content :deep(ol ol),
+.message-content :deep(ul ol),
+.message-content :deep(ol ul) {
+  margin-top: 0.2em;
+  margin-bottom: 0.2em;
+}
+
+.message-content :deep(code) {
+  font-family: monospace;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.message-content :deep(pre) {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.7em;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.message-content :deep(pre code) {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.9em;
+}
+
+.message-content :deep(blockquote) {
+  border-left: 4px solid rgba(0, 0, 0, 0.1);
+  padding-left: 1em;
+  margin: 0.5em 0;
+  color: rgba(0, 0, 0, 0.7);
+  line-height: 1.5;
+}
+
+.message-content :deep(a) {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+.message-content :deep(a:hover) {
+  text-decoration: underline;
+}
+
+/* 图片样式 */
+.message-content :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 0.5em 0;
+}
+
+/* 水平分割线样式 */
+.message-content :deep(hr) {
+  border: 0;
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.1);
+  margin: 0.8em 0;
+}
+
+.user-message .message-content :deep(hr) {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.message-content :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+}
+
+.message-content :deep(th),
+.message-content :deep(td) {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0.4em 0.6em;
+  text-align: left;
+}
+
+.message-content :deep(th) {
+  background-color: rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+}
+
+/* 用户消息中的Markdown样式调整 */
+.user-message .message-content :deep(code),
+.user-message .message-content :deep(pre) {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.user-message .message-content :deep(blockquote) {
+  border-left-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.user-message .message-content :deep(a) {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.user-message .message-content :deep(th),
+.user-message .message-content :deep(td) {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.user-message .message-content :deep(th) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
 </style>

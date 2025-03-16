@@ -16,8 +16,8 @@
           <label for="api_mode">API模式</label>
           <select id="api_mode" v-model="formData.api_mode">
             <option value="OpenAPI标准接口">OpenAPI标准接口</option>
-            <option value="Anthropic标准接口">Anthropic标准接口</option>
-            <option value="Gemini标准接口">Gemini标准接口</option>
+            <!-- <option value="Anthropic标准接口">Anthropic标准接口</option>
+            <option value="Gemini标准接口">Gemini标准接口</option> -->
           </select>
         </div>
 

@@ -278,6 +278,7 @@
   display: flex;
   flex-direction: column;
   max-width: 80%;
+  min-width: 40%;
   padding: var(--spacing-md) var(--spacing-lg);
   border-radius: 18px;
   animation: fadeIn 0.3s ease;
@@ -407,7 +408,8 @@
 }
 
 .edit-actions button:first-child {
-  background-color: var(--primary-color);
+  background-color: var(--background-secondary);
+  color: var(--text-secondary);
   color: white;
 }
 
@@ -672,6 +674,7 @@
   
   .message {
     max-width: 90%;
+    min-width: 40%;
     padding: var(--spacing-sm) var(--spacing-md);
   }
   
