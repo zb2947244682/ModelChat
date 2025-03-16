@@ -1,15 +1,187 @@
 <template>
-  <div>
-    <h2>大模型的新增与编辑</h2>
+  <div class="model-edit-overlay">
+    <div class="model-edit-container">
+      <div class="header">
+        <h2>{{ isNewModel ? '添加模型' : '编辑模型' }}</h2>
+        <button @click="cancel">关闭</button>
+      </div>
+
+      <div class="form-container">
+        <div class="form-group">
+          <label for="provider">提供商名称</label>
+          <input type="text" id="provider" v-model="formData.provider" placeholder="例如：阿里云、腾讯云等" />
+        </div>
+
+        <div class="form-group">
+          <label for="api_mode">API模式</label>
+          <select id="api_mode" v-model="formData.api_mode">
+            <option value="OpenAPI标准接口">OpenAPI标准接口</option>
+            <option value="Anthropic标准接口">Anthropic标准接口</option>
+            <option value="Gemini标准接口">Gemini标准接口</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="api_endpoint">API端点</label>
+          <input type="text" id="api_endpoint" v-model="formData.api_endpoint" placeholder="例如：https://api.openai.com/v1" />
+        </div>
+
+        <div class="form-group">
+          <label for="api_path">API路径</label>
+          <input type="text" id="api_path" v-model="formData.api_path" placeholder="例如：/chat/completions" />
+        </div>
+
+        <div class="form-group">
+          <label for="api_key">API密钥</label>
+          <input type="password" id="api_key" v-model="formData.api_key" placeholder="输入API密钥" />
+        </div>
+
+        <div class="form-group">
+          <label for="model_list">模型列表</label>
+          <div class="model-list-input">
+            <input 
+              type="text" 
+              v-model="newModelName" 
+              placeholder="输入模型名称后按回车添加" 
+              @keydown.enter.prevent="addModelToList"
+            />
+            <button @click="addModelToList">添加</button>
+          </div>
+          <div class="model-tags">
+            <div v-for="(model, index) in formData.model_list" :key="index" class="model-tag">
+              {{ model }}
+              <span @click="removeModelFromList(index)" class="remove-tag">×</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="max_context_messages">最大上下文消息数</label>
+          <input type="number" id="max_context_messages" v-model.number="formData.max_context_messages" min="1" />
+        </div>
+
+        <div class="form-group">
+          <label for="temperature">温度 (0.0-1.0)</label>
+          <input type="number" id="temperature" v-model.number="formData.temperature" min="0" max="1" step="0.1" />
+        </div>
+
+        <div class="form-group">
+          <label for="top_p">Top P (0.0-1.0)</label>
+          <input type="number" id="top_p" v-model.number="formData.top_p" min="0" max="1" step="0.1" />
+        </div>
+
+        <div class="form-group checkbox">
+          <input type="checkbox" id="is_default" v-model="formData.is_default" />
+          <label for="is_default">设为默认模型</label>
+        </div>
+
+        <div class="form-actions">
+          <button @click="cancel">取消</button>
+          <button @click="save" :disabled="!isFormValid">保存</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
+import { ref, computed, reactive, watch } from 'vue';
+
 export default {
   name: 'ModelEdit',
+  props: {
+    model: {
+      type: Object,
+      default: null
+    }
+  },
+  emits: ['save', 'cancel'],
+  setup(props, { emit }) {
+    // 表单数据
+    const formData = reactive({
+      provider: '',
+      api_mode: 'OpenAPI标准接口',
+      api_endpoint: '',
+      api_path: '',
+      api_key: '',
+      model_list: [],
+      max_context_messages: 20,
+      temperature: 0.7,
+      top_p: 1,
+      is_default: false
+    });
+
+    // 新模型名称输入
+    const newModelName = ref('');
+
+    // 是否是新模型
+    const isNewModel = computed(() => !props.model || !props.model.provider);
+
+    // 表单是否有效
+    const isFormValid = computed(() => {
+      return (
+        formData.provider.trim() !== '' &&
+        formData.api_endpoint.trim() !== '' &&
+        formData.api_path.trim() !== '' &&
+        formData.api_key.trim() !== '' &&
+        formData.model_list.length > 0
+      );
+    });
+
+    // 监听props变化，更新表单数据
+    watch(() => props.model, (newModel) => {
+      if (newModel) {
+        Object.keys(formData).forEach(key => {
+          if (key in newModel) {
+            if (key === 'model_list') {
+              formData[key] = [...newModel[key]];
+            } else {
+              formData[key] = newModel[key];
+            }
+          }
+        });
+      }
+    }, { immediate: true });
+
+    // 添加模型到列表
+    const addModelToList = () => {
+      if (newModelName.value.trim() !== '' && !formData.model_list.includes(newModelName.value.trim())) {
+        formData.model_list.push(newModelName.value.trim());
+        newModelName.value = '';
+      }
+    };
+
+    // 从列表中移除模型
+    const removeModelFromList = (index) => {
+      formData.model_list.splice(index, 1);
+    };
+
+    // 保存
+    const save = () => {
+      if (isFormValid.value) {
+        emit('save', { ...formData });
+      }
+    };
+
+    // 取消
+    const cancel = () => {
+      emit('cancel');
+    };
+
+    return {
+      formData,
+      newModelName,
+      isNewModel,
+      isFormValid,
+      addModelToList,
+      removeModelFromList,
+      save,
+      cancel
+    };
+  }
 };
 </script>
 
 <style scoped>
-/* 添加样式 */
+/* 样式由用户单独优化 */
 </style>

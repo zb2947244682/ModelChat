@@ -1,15 +1,45 @@
 <template>
-  <div>
-    <h1>设置页面</h1>
+  <div class="settings-container">
+    <div class="header">
+      <h1>设置</h1>
+      <button @click="goBack">返回</button>
+    </div>
+
+    <div class="settings-list">
+      <div class="settings-item" @click="goToModelList">
+        <div class="item-title">模型列表</div>
+        <div class="item-description">管理AI模型配置</div>
+        <div class="item-arrow">→</div>
+      </div>
+      <!-- 可以在这里添加更多设置项 -->
+    </div>
   </div>
 </template>
 
 <script>
+import { useRouter } from 'vue-router';
+
 export default {
   name: 'Settings',
+  setup() {
+    const router = useRouter();
+
+    const goBack = () => {
+      router.push('/');
+    };
+
+    const goToModelList = () => {
+      router.push('/model-list');
+    };
+
+    return {
+      goBack,
+      goToModelList
+    };
+  }
 };
 </script>
 
 <style scoped>
-/* 添加样式 */
+/* 样式由用户单独优化 */
 </style>
