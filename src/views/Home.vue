@@ -274,6 +274,8 @@ export default {
       const conv = chatStore.getConversations().find(c => c.id === conversationId);
       const systemPromptText = conv?.systemPrompt || '';
       
+      console.log("当前对话系统提示词:", systemPromptText);
+      
       // 获取当前选中的模型
       const currentModel = models.value.find(m => m.provider === selectedProvider.value);
       
@@ -284,7 +286,7 @@ export default {
         // 获取API服务
         const apiService = getApiService(currentModel.api_mode);
         
-        // 准备消息历史
+        // 准备消息历史 - 只包含历史消息，不包括刚刚添加的
         const messageHistory = conv?.messages
           .filter(msg => msg.role === 'user' || msg.role === 'assistant')
           .slice(0, -2) // 排除最后添加的用户消息和空的助手消息
@@ -314,18 +316,36 @@ export default {
             onChunk: (chunk, fullContent) => {
               console.log("收到流式响应:", chunk);
               
-              // 更新消息内容
-              const updatedMessages = chatStore.getConversations()
-                .find(c => c.id === conversationId)?.messages
-                .map(msg => 
-                  msg.id === assistantMessageId 
-                    ? { ...msg, content: fullContent } 
-                    : msg
-                );
-              
-              if (updatedMessages) {
-                chatStore.updateConversation(conversationId, { messages: updatedMessages });
+              // 获取最新的对话，避免使用闭包中可能过期的引用
+              const currentConv = chatStore.getConversations().find(c => c.id === conversationId);
+              if (!currentConv) {
+                console.error("找不到当前对话:", conversationId);
+                return;
               }
+              
+              // 找到助手消息
+              const assistantMessage = currentConv.messages.find(msg => msg.id === assistantMessageId);
+              if (!assistantMessage) {
+                console.error("找不到助手消息:", assistantMessageId);
+                return;
+              }
+              
+              // 更新消息内容
+              const updatedMessages = currentConv.messages.map(msg => 
+                msg.id === assistantMessageId 
+                  ? { ...msg, content: fullContent } 
+                  : msg
+              );
+              
+              // 更新对话
+              chatStore.updateConversation(conversationId, { 
+                messages: updatedMessages 
+              });
+              
+              // 强制滚动更新
+              nextTick(() => {
+                scrollToBottom();
+              });
             }
           }
         ).then(response => {

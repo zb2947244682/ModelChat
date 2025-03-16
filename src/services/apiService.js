@@ -10,17 +10,23 @@ export const openApiService = {
         'Authorization': `Bearer ${model.api_key}`
       };
 
+      console.log('准备API请求，系统提示词:', systemPrompt);
+      console.log('收到的消息历史:', messages);
+
       // 构建消息数组，添加系统提示词
       const requestMessages = [];
-      if (systemPrompt) {
+      if (systemPrompt && systemPrompt.trim() !== '') {
         requestMessages.push({
           role: 'system',
           content: systemPrompt
         });
+        console.log('添加了系统提示词到请求');
       }
 
       // 添加对话历史消息
       requestMessages.push(...messages);
+      
+      console.log('最终请求消息数组:', requestMessages);
 
       // 构建请求体
       const requestBody = {
