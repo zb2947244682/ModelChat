@@ -44,16 +44,45 @@
 <div class="messages" ref="messagesContainer">
   <div v-if="!currentConversation || currentConversation.messages.length === 0" class="empty-state">
     <p>开始一个新的对话吧！</p>
+    <button @click="clearConversation">清空对话记录</button>
   </div>
   <template v-else>
     <div v-for="message in currentConversation.messages" :key="message.id" 
       :class="['message', message.role === 'user' ? 'user-message' : 'assistant-message']">
-      <div class="message-role">{{ message.role === 'user' ? '用户' : 'AI' }}</div>
-      <div class="message-content">{{ message.content }}</div>
+      <div class="message-header">
+        <div class="message-role">{{ message.role === 'user' ? '用户' : 'AI' }}</div>
+        <!-- 用户消息操作 -->
+        <div v-if="message.role === 'user'" class="message-actions">
+          <button @click="editMessage(message)">编辑</button>
+          <button @click="deleteMessage(message.id)">删除</button>
+        </div>
+        
+        <!-- 助手消息操作 -->
+        <div v-else class="message-actions">
+          <button @click="copyAsMarkdown(message.content)">复制MD</button>
+          <button @click="copyAsText(message.content)">复制文本</button>
+          <button @click="regenerateMessage(message.id)">重新生成</button>
+          <button @click="deleteMessage(message.id)">删除</button>
+        </div>
+      </div>
+      
+      <div v-if="editingMessageId === message.id" class="message-edit">
+        <textarea v-model="editingContent"></textarea>
+        <div class="edit-actions">
+          <button @click="saveEdit(message.id)">保存</button>
+          <button @click="cancelEdit()">取消</button>
+        </div>
+      </div>
+      <div v-else class="message-content">{{ message.content }}</div>
     </div>
   </template>
-  <div v-if="isLoading" class="message assistant">
+  
+  <div v-if="isLoading" class="message assistant-message">
     <div class="message-content loading">正在思考...</div>
+  </div>
+  
+  <div v-if="currentConversation && currentConversation.messages.length > 0" class="clear-conversation">
+    <button @click="clearConversation">清空对话记录</button>
   </div>
 </div>
 
@@ -96,6 +125,8 @@ export default {
     const showChatList = ref(false);
     const messagesContainer = ref(null);
     const systemPrompt = ref('');
+    const editingMessageId = ref(null);
+    const editingContent = ref('');
 
     // 模型相关
     const models = ref([]);
@@ -496,6 +527,359 @@ export default {
       router.push('/settings');
     };
 
+    // 编辑消息
+    const editMessage = (message) => {
+      editingMessageId.value = message.id;
+      editingContent.value = message.content;
+    };
+
+    // 保存编辑
+    const saveEdit = (messageId) => {
+      if (!editingContent.value.trim()) {
+        return;
+      }
+
+      const conversationId = currentConversation.value.id;
+      const messageIndex = currentConversation.value.messages.findIndex(msg => msg.id === messageId);
+      
+      if (messageIndex === -1) return;
+      
+      // 获取编辑后的消息内容
+      const editedContent = editingContent.value;
+      
+      // 如果是用户消息，我们需要处理它之后的所有消息
+      if (currentConversation.value.messages[messageIndex].role === 'user') {
+        // 更新当前消息的内容
+        const editedMessage = {
+          ...currentConversation.value.messages[messageIndex],
+          content: editedContent
+        };
+        
+        // 如果该用户消息后面有AI回复，我们需要生成一个新的AI回复
+        if (messageIndex + 1 < currentConversation.value.messages.length && 
+            currentConversation.value.messages[messageIndex + 1].role === 'assistant') {
+          // 只保留到当前消息的所有消息，丢弃该消息之后的内容
+          const updatedMessages = [
+            ...currentConversation.value.messages.slice(0, messageIndex),
+            editedMessage
+          ];
+          
+          // 更新对话
+          chatStore.updateConversation(conversationId, { messages: updatedMessages });
+          cancelEdit();
+          
+          // 开始加载
+          isLoading.value = true;
+          
+          // 直接添加空的助手消息，让chatStore为我们生成唯一ID
+          const assistantMessage = chatStore.addMessage(conversationId, {
+            role: 'assistant',
+            content: ''
+          });
+          
+          // 获取助手消息ID用于后续更新
+          const assistantMessageId = assistantMessage.messages[assistantMessage.messages.length - 1].id;
+          
+          // 获取当前对话和系统提示词
+          const conv = chatStore.getConversations().find(c => c.id === conversationId);
+          const systemPromptText = conv?.systemPrompt || '';
+          
+          // 获取当前选中的模型
+          const currentModel = models.value.find(m => m.provider === selectedProvider.value);
+          
+          // 准备消息历史，不包括刚添加的空助手消息
+          const messageHistory = conv?.messages
+            .filter(msg => msg.id !== assistantMessageId)
+            .map(msg => ({
+              role: msg.role,
+              content: msg.content
+            }));
+          
+          console.log("编辑用户消息后，发送的消息历史:", messageHistory);
+          
+          // 调用API逻辑，与sendMessage中的相同
+          if (currentModel && currentModel.api_key) {
+            const apiService = getApiService(currentModel.api_mode);
+            
+            apiService.sendChatRequest(
+              currentModel,
+              messageHistory,
+              systemPromptText,
+              {
+                modelName: selectedModelName.value,
+                stream: true,
+                onChunk: (chunk, fullContent) => {
+                  const currentConv = chatStore.getConversations().find(c => c.id === conversationId);
+                  if (!currentConv) return;
+                  
+                  const assistantMessage = currentConv.messages.find(msg => msg.id === assistantMessageId);
+                  if (!assistantMessage) return;
+                  
+                  try {
+                    assistantMessage.content = fullContent;
+                    
+                    const updatedConv = JSON.parse(JSON.stringify(currentConv));
+                    const updatedAssistantMessage = updatedConv.messages.find(msg => msg.id === assistantMessageId);
+                    if (updatedAssistantMessage) {
+                      updatedAssistantMessage.content = fullContent;
+                    }
+                    
+                    chatStore.updateConversation(conversationId, { 
+                      messages: updatedConv.messages 
+                    });
+                    
+                    if (conversationId === chatStore.getCurrentConversation()?.id) {
+                      nextTick(() => scrollToBottom());
+                    }
+                  } catch (error) {
+                    console.error('更新消息内容失败:', error);
+                  }
+                }
+              }
+            ).then(() => {
+              isLoading.value = false;
+            }).catch(error => {
+              console.error("API调用失败:", error);
+              
+              const updatedMessages = chatStore.getConversations()
+                .find(c => c.id === conversationId)?.messages
+                .map(msg => 
+                  msg.id === assistantMessageId 
+                    ? { ...msg, content: `API调用失败: ${error.message || '未知错误'}` } 
+                    : msg
+                );
+              
+              if (updatedMessages) {
+                chatStore.updateConversation(conversationId, { messages: updatedMessages });
+              }
+              
+              isLoading.value = false;
+            });
+          } else {
+            // 模拟响应
+            setTimeout(() => {
+              const updatedMessages = chatStore.getConversations()
+                .find(c => c.id === conversationId)?.messages
+                .map(msg => 
+                  msg.id === assistantMessageId 
+                    ? { ...msg, content: `这是对编辑后消息"${editedContent}"的模拟回复。请先在设置中配置API密钥。` } 
+                    : msg
+                );
+              
+              if (updatedMessages) {
+                chatStore.updateConversation(conversationId, { messages: updatedMessages });
+              }
+              
+              isLoading.value = false;
+            }, 1000);
+          }
+        } else {
+          // 如果该用户消息后面没有AI回复，直接更新内容即可
+          const updatedMessages = currentConversation.value.messages.map(msg => 
+            msg.id === messageId ? { ...msg, content: editedContent } : msg
+          );
+          // 更新对话
+          chatStore.updateConversation(conversationId, { messages: updatedMessages });
+          cancelEdit();
+        }
+      } else {
+        // 如果是助手消息，只更新该消息内容
+        const updatedMessages = currentConversation.value.messages.map(msg => 
+          msg.id === messageId ? { ...msg, content: editedContent } : msg
+        );
+        // 更新对话
+        chatStore.updateConversation(conversationId, { messages: updatedMessages });
+        cancelEdit();
+      }
+    };
+
+    // 取消编辑
+    const cancelEdit = () => {
+      editingMessageId.value = null;
+      editingContent.value = '';
+    };
+
+    // 复制为Markdown
+    const copyAsMarkdown = (content) => {
+      // 将内容包装为Markdown格式
+      const markdownContent = `\`\`\`\n${content}\n\`\`\``;
+      copyTextToClipboard(markdownContent);
+    };
+
+    // 复制为纯文本
+    const copyAsText = (content) => {
+      copyTextToClipboard(content);
+    };
+
+    // 复制到剪贴板的通用函数
+    const copyTextToClipboard = (text) => {
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          alert('已复制到剪贴板');
+        })
+        .catch(err => {
+          console.error('复制失败:', err);
+          alert('复制失败: ' + err);
+        });
+    };
+
+    // 删除消息
+    const deleteMessage = (messageId) => {
+      if (!currentConversation.value) return;
+      
+      const conversationId = currentConversation.value.id;
+      const messageIndex = currentConversation.value.messages.findIndex(msg => msg.id === messageId);
+      
+      if (messageIndex === -1) return;
+      
+      // 创建新的消息数组，移除指定消息
+      const updatedMessages = currentConversation.value.messages.filter(msg => msg.id !== messageId);
+      
+      // 更新对话
+      chatStore.updateConversation(conversationId, { messages: updatedMessages });
+    };
+
+    // 重新生成消息
+    const regenerateMessage = (messageId) => {
+      if (!currentConversation.value) return;
+      
+      const conversationId = currentConversation.value.id;
+      const messageIndex = currentConversation.value.messages.findIndex(msg => msg.id === messageId);
+      
+      if (messageIndex === -1) return;
+      
+      // 找到要重新生成的助手消息的前一条用户消息
+      const prevUserMessageIndex = messageIndex - 1;
+      if (prevUserMessageIndex >= 0 && 
+          currentConversation.value.messages[prevUserMessageIndex].role === 'user') {
+        
+        // 删除该助手消息及之后的所有消息，只保留到用户消息
+        const updatedMessages = currentConversation.value.messages.slice(0, messageIndex);
+        
+        // 更新对话
+        chatStore.updateConversation(conversationId, { messages: updatedMessages });
+        
+        // 获取用户上一条消息内容
+        const userMessageContent = currentConversation.value.messages[prevUserMessageIndex].content;
+        
+        // 直接使用chatStore的方法添加新的用户消息和空的助手消息，然后调用API
+        isLoading.value = true;
+        
+        // 直接添加空的助手消息，让chatStore为我们生成唯一ID
+        const assistantMessage = chatStore.addMessage(conversationId, {
+          role: 'assistant',
+          content: ''
+        });
+        
+        // 获取助手消息ID用于后续更新
+        const assistantMessageId = assistantMessage.messages[assistantMessage.messages.length - 1].id;
+        
+        // 获取当前对话和系统提示词
+        const conv = chatStore.getConversations().find(c => c.id === conversationId);
+        const systemPromptText = conv?.systemPrompt || '';
+        
+        // 获取当前选中的模型
+        const currentModel = models.value.find(m => m.provider === selectedProvider.value);
+        
+        // 准备消息历史，直接使用全部历史消息，但不包括刚添加的空助手消息
+        const messageHistory = conv?.messages
+          .filter(msg => msg.id !== assistantMessageId)
+          .map(msg => ({
+            role: msg.role,
+            content: msg.content
+          }));
+        
+        console.log("重新生成时的消息历史:", messageHistory);
+        
+        // 调用API逻辑，与sendMessage中的相同
+        if (currentModel && currentModel.api_key) {
+          const apiService = getApiService(currentModel.api_mode);
+          
+          apiService.sendChatRequest(
+            currentModel,
+            messageHistory,
+            systemPromptText,
+            {
+              modelName: selectedModelName.value,
+              stream: true,
+              onChunk: (chunk, fullContent) => {
+                const currentConv = chatStore.getConversations().find(c => c.id === conversationId);
+                if (!currentConv) return;
+                
+                const assistantMessage = currentConv.messages.find(msg => msg.id === assistantMessageId);
+                if (!assistantMessage) return;
+                
+                try {
+                  assistantMessage.content = fullContent;
+                  
+                  const updatedConv = JSON.parse(JSON.stringify(currentConv));
+                  const updatedAssistantMessage = updatedConv.messages.find(msg => msg.id === assistantMessageId);
+                  if (updatedAssistantMessage) {
+                    updatedAssistantMessage.content = fullContent;
+                  }
+                  
+                  chatStore.updateConversation(conversationId, { 
+                    messages: updatedConv.messages 
+                  });
+                  
+                  if (conversationId === chatStore.getCurrentConversation()?.id) {
+                    nextTick(() => scrollToBottom());
+                  }
+                } catch (error) {
+                  console.error('更新消息内容失败:', error);
+                }
+              }
+            }
+          ).then(() => {
+            isLoading.value = false;
+          }).catch(error => {
+            console.error("API调用失败:", error);
+            
+            const updatedMessages = chatStore.getConversations()
+              .find(c => c.id === conversationId)?.messages
+              .map(msg => 
+                msg.id === assistantMessageId 
+                  ? { ...msg, content: `API调用失败: ${error.message || '未知错误'}` } 
+                  : msg
+              );
+            
+            if (updatedMessages) {
+              chatStore.updateConversation(conversationId, { messages: updatedMessages });
+            }
+            
+            isLoading.value = false;
+          });
+        } else {
+          // 模拟响应
+          setTimeout(() => {
+            const updatedMessages = chatStore.getConversations()
+              .find(c => c.id === conversationId)?.messages
+              .map(msg => 
+                msg.id === assistantMessageId 
+                  ? { ...msg, content: `这是重新生成的对"${userMessageContent}"的模拟回复。请先在设置中配置API密钥。` } 
+                  : msg
+              );
+            
+            if (updatedMessages) {
+              chatStore.updateConversation(conversationId, { messages: updatedMessages });
+            }
+            
+            isLoading.value = false;
+          }, 1000);
+        }
+      }
+    };
+
+    // 清空对话记录
+    const clearConversation = () => {
+      if (!currentConversation.value) return;
+      
+      if (confirm('确定要清空所有对话记录吗？')) {
+        const conversationId = currentConversation.value.id;
+        chatStore.updateConversation(conversationId, { messages: [] });
+      }
+    };
+
     return {
       userInput,
       isLoading,
@@ -512,85 +896,23 @@ export default {
       selectConversation,
       updateSystemPrompt,
       sendMessage,
-      goToSettings
+      goToSettings,
+      // 新增功能
+      editingMessageId,
+      editingContent,
+      editMessage,
+      saveEdit,
+      cancelEdit,
+      copyAsMarkdown,
+      copyAsText,
+      deleteMessage,
+      regenerateMessage,
+      clearConversation
     };
   }
 };
 </script>
 
 <style scoped>
-.messages {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  overflow-y: auto;
-  padding: 10px;
-  height: 300px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  background-color: #f9f9f9;
-}
-
-.message {
-  padding: 10px;
-  border-radius: 8px;
-  max-width: 80%;
-}
-
-.user-message {
-  align-self: flex-end;
-  background-color: #dcf8c6;
-  margin-left: auto;
-}
-
-.assistant-message {
-  align-self: flex-start;
-  background-color: #ffffff;
-  margin-right: auto;
-}
-
-.message-role {
-  font-size: 12px;
-  font-weight: bold;
-  margin-bottom: 5px;
-  color: #555;
-}
-
-.message-content {
-  word-break: break-word;
-}
-
-.loading {
-  font-style: italic;
-  color: #888;
-}
-
-.input-container {
-  display: flex;
-  margin-top: 10px;
-}
-
-.input-container textarea {
-  flex: 1;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  resize: none;
-  height: 60px;
-}
-
-.input-container button {
-  margin-left: 10px;
-  padding: 0 20px;
-  background-color: #4caf50;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-.input-container button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
+/* 按照用户要求，移除CSS样式 */
 </style>
