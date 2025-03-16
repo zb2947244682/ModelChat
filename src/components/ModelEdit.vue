@@ -3,7 +3,7 @@
     <div class="model-edit-container">
       <div class="header">
         <h2>{{ isNewModel ? '添加模型' : '编辑模型' }}</h2>
-        <button @click="cancel">关闭</button>
+        <button @click="cancel">❌</button>
       </div>
 
       <div class="form-container">
@@ -120,5 +120,5 @@ export default {
 </script>
 
 <style scoped>
-/* 样式由用户单独优化 */
+@import '../assets/styles/model-edit.css';
 </style>

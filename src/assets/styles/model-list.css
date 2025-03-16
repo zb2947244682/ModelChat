@@ -1,0 +1,203 @@
+/* ModelList页面样式 */
+.model-list-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  background-color: var(--background-color);
+  font-size: 14px;
+}
+
+/* 头部样式 */
+.model-list-container .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--background-color);
+}
+
+.model-list-container .header h1 {
+  font-size: 20px;
+  color: var(--primary-color);
+  font-weight: 600;
+  margin: 0;
+}
+
+.model-list-container .header .actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.model-list-container .header button {
+  padding: 8px 16px;
+  border-radius: var(--border-radius-md);
+  background-color: var(--background-secondary);
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  font-size: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border-color);
+}
+
+.model-list-container .header button:last-child {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+}
+
+.model-list-container .header button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+}
+
+.model-list-container .header button:last-child:hover {
+  background-color: var(--primary-light);
+}
+
+/* 模型列表样式 */
+.models-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-md);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: 15px;
+  padding: var(--spacing-lg);
+  text-align: center;
+}
+
+.model-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.model-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-lg);
+  background-color: var(--background-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid var(--border-color);
+}
+
+.model-item:hover {
+  background-color: #f3f4f6;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.model-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.model-provider {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.model-api-mode {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.model-models {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: var(--spacing-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.model-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.model-actions button {
+  padding: 6px 12px;
+  border-radius: var(--border-radius-md);
+  font-size: 13px;
+  transition: all 0.2s ease;
+  background-color: white;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.model-actions button:first-child {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  background-color: white;
+}
+
+.model-actions button:last-child {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+  background-color: white;
+}
+
+.model-actions button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .model-list-container .header {
+    padding: var(--spacing-sm);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+  
+  .model-list-container .header .actions {
+    width: 100%;
+  }
+  
+  .model-list-container .header button {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+  }
+  
+  .models-container {
+    padding: var(--spacing-sm);
+  }
+  
+  .model-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .model-info {
+    width: 100%;
+    margin-bottom: var(--spacing-sm);
+  }
+  
+  .model-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  .model-models {
+    max-width: 100%;
+  }
+}

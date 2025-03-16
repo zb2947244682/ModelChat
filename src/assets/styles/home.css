@@ -150,7 +150,7 @@
 /* 在PC模式下隐藏移动端专用元素 */
 @media (min-width: 769px) {
   .mobile-only {
-    display: none;
+    display: none !important;
   }
 }
 

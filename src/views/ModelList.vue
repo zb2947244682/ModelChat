@@ -17,7 +17,6 @@
           v-for="model in models" 
           :key="model.provider" 
           class="model-item"
-          :class="{ 'is-default': model.is_default }"
           @click="editModel(model)"
         >
           <div class="model-info">
@@ -26,8 +25,7 @@
             <div class="model-models">模型: {{ model.model_list.join(', ') }}</div>
           </div>
           <div class="model-actions">
-            <button @click.stop="setAsDefault(model)" v-if="!model.is_default">设为默认</button>
-            <span v-if="model.is_default" class="default-badge">默认</span>
+            <button @click.stop="setAsDefault(model)">设为默认</button>
             <button @click.stop="deleteModel(model)">删除</button>
           </div>
         </div>
@@ -80,5 +78,5 @@ export default {
 </script>
 
 <style scoped>
-/* 样式由用户单独优化 */
+@import '../assets/styles/model-list.css';
 </style>

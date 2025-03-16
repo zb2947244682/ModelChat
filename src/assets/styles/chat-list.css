@@ -186,6 +186,10 @@
   .mobile-only {
     display: none;
   }
+  
+  .chat-list-container .header {
+    display: none;
+  }
 }
 
 /* 在移动端显示移动端专用元素 */

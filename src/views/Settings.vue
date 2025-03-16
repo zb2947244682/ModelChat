@@ -2,7 +2,9 @@
   <div class="settings-container">
     <div class="header">
       <h1>设置</h1>
-      <button @click="goBack">返回</button>
+      <div class="actions">
+        <button @click="goBack">返回</button>
+      </div>
     </div>
 
     <div class="settings-list">
@@ -33,5 +35,5 @@ export default {
 </script>
 
 <style scoped>
-/* 样式由用户单独优化 */
+@import '../assets/styles/settings.css';
 </style>
