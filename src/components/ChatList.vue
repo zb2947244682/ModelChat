@@ -2,7 +2,7 @@
   <div class="chat-list-container">
     <div class="header">
       <h2>对话列表</h2>
-      <button @click="$emit('close')" title="关闭">✕</button>
+      <button v-if="!hideCloseButton" @click="$emit('close')" title="关闭">✕</button>
     </div>
 
     <div class="conversations">
@@ -43,6 +43,12 @@ import { chatStore } from '../store/chatStore';
 
 export default {
   name: 'ChatList',
+  props: {
+    hideCloseButton: {
+      type: Boolean,
+      default: false
+    }
+  },
   emits: ['select-conversation', 'close'],
   setup(props, { emit }) {
     const conversations = ref([]);

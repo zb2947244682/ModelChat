@@ -1,110 +1,178 @@
 <template>
   <div class="home-container">
-    <div class="header">
-      <h1>AI聊天助手</h1>
-      <div class="actions">
-        <button @click="showChatList = !showChatList" title="对话列表">
-          <span class="icon">&#9776;</span>
-        </button>
-        <button @click="createNewConversation" title="新建对话">
-          <span class="icon">&#43;</span>
-        </button>
-        <button @click="goToSettings" title="设置">
-          <span class="icon">&#9881;</span>
-        </button>
+    <!-- 左侧对话列表 - 在PC模式下始终显示 -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2>AI聊天助手</h2>
+      </div>
+      
+      <div class="sidebar-content">
+        <ChatList 
+          @select-conversation="selectConversation"
+          :class="{ 'mobile-chat-list': true }"
+          :hide-close-button="true"
+        />
       </div>
     </div>
 
-    <div class="model-selector">
-      <div class="provider-selector">
-        <label for="provider">选择提供商</label>
-        <select id="provider" v-model="selectedProvider" @change="onProviderChange">
-          <option v-for="model in models" :key="model.provider" :value="model.provider">
-            {{ model.provider }}
-          </option>
-        </select>
-      </div>
-      <div class="model-name-selector">
-        <label for="model">选择模型</label>
-        <select id="model" v-model="selectedModelName">
-          <option v-for="modelName in currentModelNames" :key="modelName" :value="modelName">
-            {{ modelName }}
-          </option>
-        </select>
-      </div>
-    </div>
-
-    <div class="system-prompt">
-      <div class="system-prompt-header">
-        <label for="systemPrompt">系统提示词</label>
-      </div>
-      <textarea 
-        id="systemPrompt" 
-        v-model="systemPrompt" 
-        @input="updateSystemPrompt"
-        placeholder="输入系统提示词，定义AI助手的行为和能力..."
-      ></textarea>
-    </div>
-
-    <div class="chat-container">
-      <div class="messages" ref="messagesContainer">
-        <div v-if="!currentConversation || currentConversation.messages.length === 0" class="empty-state">
-          <p>开始一个新的对话吧！</p>
-          <button @click="clearConversation">清空对话记录</button>
+    <!-- 右侧聊天区域 -->
+    <div class="main-content">
+      <div class="main-header">
+        <div class="conversation-title-container">
+          <input 
+            v-if="isTitleEditing" 
+            v-model="editingTitle" 
+            @blur="saveTitle" 
+            @keydown.enter="saveTitle"
+            ref="titleInput"
+            class="title-input"
+          />
+          <h1 v-else @click="startEditingTitle">
+            {{ currentConversation?.title || '新对话' }}
+            <span class="edit-icon">✏️</span>
+          </h1>
         </div>
-        <template v-else>
-          <div v-for="message in currentConversation.messages" :key="message.id" 
-            :class="['message', message.role === 'user' ? 'user-message' : 'assistant-message']">
-            <div class="message-header">
-              <div class="message-role">{{ message.role === 'user' ? '用户' : 'AI助手' }}</div>
-            </div>
-            
-            <div v-if="editingMessageId === message.id" class="message-edit">
-              <textarea v-model="editingContent"></textarea>
-              <div class="edit-actions">
-                <button @click="saveEdit(message.id)">保存</button>
-                <button @click="cancelEdit()">取消</button>
+        
+        <div class="actions">
+          <button @click="showChatList = !showChatList" title="对话列表" class="mobile-only">
+            <span class="icon">&#9776;</span>
+          </button>
+          <button @click="goToSettings" title="设置">
+            <span class="icon">&#9881;</span>
+          </button>
+        </div>
+      </div>
+
+
+      <div class="chat-container">
+        <div class="messages" ref="messagesContainer">
+          <div v-if="!currentConversation || (currentConversation.messages.length === 0 && !systemPrompt)" class="empty-state">
+            <p>开始一个新的对话吧！</p>
+            <button @click="clearConversation">清空对话记录</button>
+          </div>
+          <template v-else>
+            <!-- 系统提示词作为一条消息显示 -->
+            <div v-if="systemPrompt" class="message system-message">
+              <div class="message-header">
+                <div class="message-role">系统</div>
+              </div>
+              
+              <div v-if="editingSystemPrompt" class="message-edit">
+                <textarea v-model="editingSystemPromptContent"></textarea>
+                <div class="edit-actions">
+                  <button @click="saveSystemPromptEdit">保存</button>
+                  <button @click="cancelSystemPromptEdit">取消</button>
+                </div>
+              </div>
+              <div v-else class="message-content">{{ systemPrompt }}</div>
+              
+              <div class="message-actions visible">
+                <button @click="editSystemPrompt" title="编辑">✏️</button>
               </div>
             </div>
-            <div v-else class="message-content">{{ message.content }}</div>
             
-            <!-- 用户消息操作 -->
-            <div v-if="message.role === 'user'" class="message-actions">
-              <button @click="editMessage(message)" title="编辑">✏️</button>
-              <button @click="deleteMessage(message.id)" title="删除">🗑️</button>
+            <!-- 用户和助手消息 -->
+            <div v-for="message in currentConversation.messages" :key="message.id" 
+              :class="['message', message.role === 'user' ? 'user-message' : 'assistant-message']">
+              <div class="message-header">
+                <div class="message-role">{{ message.role === 'user' ? '用户' : 'AI助手' }}</div>
+              </div>
+              
+              <div v-if="editingMessageId === message.id" class="message-edit">
+                <textarea v-model="editingContent"></textarea>
+                <div class="edit-actions">
+                  <button @click="saveEdit(message.id)">保存</button>
+                  <button @click="cancelEdit()">取消</button>
+                </div>
+              </div>
+              <div v-else class="message-content">{{ message.content }}</div>
+              
+              <!-- 用户消息操作 -->
+              <div v-if="message.role === 'user'" class="message-actions visible">
+                <button @click="editMessage(message)" title="编辑">✏️</button>
+                <button @click="deleteMessage(message.id)" title="删除">🗑️</button>
+              </div>
+              
+              <!-- 助手消息操作 -->
+              <div v-else class="message-actions visible">
+                <button @click="copyAsMarkdown(message.content)" title="复制为Markdown">📋</button>
+                <button @click="copyAsText(message.content)" title="复制文本">📄</button>
+                <button @click="regenerateMessage(message.id)" title="重新生成">🔄</button>
+                <button @click="deleteMessage(message.id)" title="删除">🗑️</button>
+              </div>
             </div>
-            
-            <!-- 助手消息操作 -->
-            <div v-else class="message-actions">
-              <button @click="copyAsMarkdown(message.content)" title="复制为Markdown">📋</button>
-              <button @click="copyAsText(message.content)" title="复制文本">📄</button>
-              <button @click="regenerateMessage(message.id)" title="重新生成">🔄</button>
-              <button @click="deleteMessage(message.id)" title="删除">🗑️</button>
-            </div>
+          </template>
+          
+          <div v-if="isLoading" class="message assistant-message">
+            <div class="message-content loading">正在思考...</div>
           </div>
-        </template>
-        
-        <div v-if="isLoading" class="message assistant-message">
-          <div class="message-content loading">正在思考...</div>
+          
+          <div v-if="currentConversation && currentConversation.messages.length > 0" class="clear-conversation">
+            <button @click="clearConversation">清空对话记录</button>
+          </div>
         </div>
-        
-        <div v-if="currentConversation && currentConversation.messages.length > 0" class="clear-conversation">
-          <button @click="clearConversation">清空对话记录</button>
-        </div>
-      </div>
 
-      <div class="input-container">
-        <textarea 
-          v-model="userInput" 
-          @keydown.enter.prevent="sendMessage"
-          placeholder="输入您的问题或指令..."
-        ></textarea>
-        <button @click="sendMessage" :disabled="isLoading || !userInput.trim()">
-          <span class="icon">&#10148;</span>
-        </button>
+        <div class="input-area">
+          <div class="custom-selects">
+            <!-- 自定义提供商选择器 -->
+            <div class="custom-select" :class="{ 'active': isProviderSelectOpen }">
+              <div class="select-header" @click="toggleProviderSelect">
+                <span>{{ selectedProvider || '选择提供商' }}</span>
+                <span class="select-arrow">▼</span>
+              </div>
+              <div v-if="isProviderSelectOpen" class="select-options">
+                <div 
+                  v-for="model in models" 
+                  :key="model.provider" 
+                  class="select-option"
+                  :class="{ 'selected': selectedProvider === model.provider }"
+                  @click="selectProvider(model.provider)"
+                >
+                  {{ model.provider }}
+                </div>
+              </div>
+            </div>
+            
+            <!-- 自定义模型选择器 -->
+            <div class="custom-select" :class="{ 'active': isModelSelectOpen }">
+              <div class="select-header" @click="toggleModelSelect">
+                <span>{{ selectedModelName || '选择模型' }}</span>
+                <span class="select-arrow">▼</span>
+              </div>
+              <div v-if="isModelSelectOpen" class="select-options">
+                <div 
+                  v-for="modelName in currentModelNames" 
+                  :key="modelName" 
+                  class="select-option"
+                  :class="{ 'selected': selectedModelName === modelName }"
+                  @click="selectModel(modelName)"
+                >
+                  {{ modelName }}
+                </div>
+              </div>
+            </div>
+            
+            <!-- 系统提示词按钮 -->
+            <button class="system-prompt-btn" @click="showSystemPromptModal = true">
+              系统提示词
+            </button>
+          </div>
+          
+          <div class="input-container">
+            <textarea 
+              v-model="userInput" 
+              @keydown.enter.prevent="sendMessage"
+              placeholder="输入您的问题或指令..."
+            ></textarea>
+            <button @click="sendMessage" :disabled="isLoading || !userInput.trim()">
+              <span class="icon">&#10148;</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
+    <!-- 移动端对话列表面板 -->
     <div class="chat-list-panel" v-if="showChatList">
       <ChatList 
         @select-conversation="selectConversation" 
@@ -115,7 +183,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import ChatList from '../components/ChatList.vue';
 import { modelStore } from '../store/modelStore';
@@ -136,6 +204,20 @@ export default {
     const systemPrompt = ref('');
     const editingMessageId = ref(null);
     const editingContent = ref('');
+    
+    // 对话标题编辑
+    const isTitleEditing = ref(false);
+    const editingTitle = ref('');
+    const titleInput = ref(null);
+    
+    // 系统提示词编辑
+    const editingSystemPrompt = ref(false);
+    const editingSystemPromptContent = ref('');
+    const showSystemPromptModal = ref(false);
+    
+    // 自定义选择器状态
+    const isProviderSelectOpen = ref(false);
+    const isModelSelectOpen = ref(false);
 
     // 模型相关
     const models = ref([]);
@@ -891,6 +973,156 @@ export default {
       chatStore.updateConversation(conversationId, { messages: [] });
     };
 
+    // 自定义选择器方法
+    const toggleProviderSelect = () => {
+      isProviderSelectOpen.value = !isProviderSelectOpen.value;
+      if (isProviderSelectOpen.value) {
+        isModelSelectOpen.value = false;
+      }
+    };
+    
+    const toggleModelSelect = () => {
+      isModelSelectOpen.value = !isModelSelectOpen.value;
+      if (isModelSelectOpen.value) {
+        isProviderSelectOpen.value = false;
+      }
+    };
+    
+    const selectProvider = (provider) => {
+      selectedProvider.value = provider;
+      isProviderSelectOpen.value = false;
+      onProviderChange();
+    };
+    
+    const selectModel = (modelName) => {
+      selectedModelName.value = modelName;
+      isModelSelectOpen.value = false;
+    };
+    
+    // 点击外部关闭选择器
+    const closeSelects = (event) => {
+      const isClickInsideProviderSelect = event.target.closest('.custom-select');
+      const isClickInsideModelSelect = event.target.closest('.custom-select');
+      
+      if (!isClickInsideProviderSelect && isProviderSelectOpen.value) {
+        isProviderSelectOpen.value = false;
+      }
+      
+      if (!isClickInsideModelSelect && isModelSelectOpen.value) {
+        isModelSelectOpen.value = false;
+      }
+    };
+    
+    // 添加全局点击事件监听器
+    onMounted(() => {
+      document.addEventListener('click', closeSelects);
+      
+      // 其他初始化代码...
+      console.log("组件挂载，开始初始化");
+      
+      // 加载模型
+      models.value = modelStore.getModels();
+      console.log("加载的模型:", models.value);
+      
+      // 设置默认模型
+      const defaultModel = modelStore.getDefaultModel();
+      if (defaultModel) {
+        selectedProvider.value = defaultModel.provider;
+        if (defaultModel.model_list && defaultModel.model_list.length > 0) {
+          selectedModelName.value = defaultModel.model_list[0];
+        }
+      } else if (models.value.length > 0) {
+        selectedProvider.value = models.value[0].provider;
+        if (models.value[0].model_list && models.value[0].model_list.length > 0) {
+          selectedModelName.value = models.value[0].model_list[0];
+        }
+      }
+      
+      // 获取所有对话
+      const conversations = chatStore.getConversations();
+      console.log("获取到的对话列表:", conversations, "长度:", conversations.length);
+      
+      // 如果有对话，使用第一个；如果没有，创建新对话
+      if (conversations.length > 0) {
+        console.log("使用现有对话:", conversations[0].id);
+        chatStore.setCurrentConversation(conversations[0].id);
+        
+        // 确保当前对话设置成功
+        const currentConv = chatStore.getCurrentConversation();
+        console.log("当前对话:", currentConv);
+        
+        if (currentConv) {
+          systemPrompt.value = currentConv.systemPrompt || '';
+          console.log("从当前对话加载系统提示词:", systemPrompt.value);
+        } else {
+          console.warn("无法获取当前对话，尽管对话列表不为空");
+          // 强制再次设置当前对话
+          chatStore.setCurrentConversation(conversations[0].id);
+        }
+      } else {
+        console.log("创建新对话");
+        const newConv = createNewConversation();
+        console.log("新创建的对话:", newConv);
+      }
+    });
+    
+    // 移除全局点击事件监听器
+    onUnmounted(() => {
+      document.removeEventListener('click', closeSelects);
+    });
+    
+    // 开始编辑标题
+    const startEditingTitle = () => {
+      if (!currentConversation.value) return;
+      
+      editingTitle.value = currentConversation.value.title;
+      isTitleEditing.value = true;
+      
+      // 等待DOM更新后聚焦输入框
+      nextTick(() => {
+        if (titleInput.value) {
+          titleInput.value.focus();
+        }
+      });
+    };
+    
+    // 保存标题
+    const saveTitle = () => {
+      if (!currentConversation.value || !editingTitle.value.trim()) {
+        isTitleEditing.value = false;
+        return;
+      }
+      
+      const conversationId = currentConversation.value.id;
+      
+      // 更新对话标题
+      chatStore.updateConversation(conversationId, {
+        title: editingTitle.value.trim()
+      });
+      
+      isTitleEditing.value = false;
+    };
+    
+    // 编辑系统提示词
+    const editSystemPrompt = () => {
+      editingSystemPromptContent.value = systemPrompt.value;
+      editingSystemPrompt.value = true;
+    };
+    
+    // 保存系统提示词编辑
+    const saveSystemPromptEdit = () => {
+      if (!currentConversation.value) return;
+      
+      systemPrompt.value = editingSystemPromptContent.value;
+      updateSystemPrompt();
+      editingSystemPrompt.value = false;
+    };
+    
+    // 取消系统提示词编辑
+    const cancelSystemPromptEdit = () => {
+      editingSystemPrompt.value = false;
+    };
+
     return {
       userInput,
       isLoading,
@@ -908,7 +1140,7 @@ export default {
       updateSystemPrompt,
       sendMessage,
       goToSettings,
-      // 新增功能
+      // 消息编辑功能
       editingMessageId,
       editingContent,
       editMessage,
@@ -918,7 +1150,27 @@ export default {
       copyAsText,
       deleteMessage,
       regenerateMessage,
-      clearConversation
+      clearConversation,
+      // 标题编辑功能
+      isTitleEditing,
+      editingTitle,
+      titleInput,
+      startEditingTitle,
+      saveTitle,
+      // 系统提示词编辑
+      editingSystemPrompt,
+      editingSystemPromptContent,
+      showSystemPromptModal,
+      editSystemPrompt,
+      saveSystemPromptEdit,
+      cancelSystemPromptEdit,
+      // 自定义选择器
+      isProviderSelectOpen,
+      isModelSelectOpen,
+      toggleProviderSelect,
+      toggleModelSelect,
+      selectProvider,
+      selectModel
     };
   }
 };
