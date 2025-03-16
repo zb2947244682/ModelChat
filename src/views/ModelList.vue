@@ -67,7 +67,7 @@ export default {
 
     // 加载模型列表
     const loadModels = () => {
-      models.value = modelStore.getModels();
+      models.value = [...modelStore.getModels()]; // Create a new array to ensure reactivity
     };
 
     // 返回上一页
