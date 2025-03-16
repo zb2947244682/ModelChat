@@ -234,8 +234,13 @@ export default {
       const newConv = chatStore.createConversation('新对话');
       console.log('在Home组件中创建了新对话:', newConv.id);
       
-      // 确保系统提示词被重置
-      systemPrompt.value = '';
+      // 设置默认系统提示词
+      systemPrompt.value = '你是一个智能助手。';
+      
+      // 更新对话的系统提示词
+      chatStore.updateConversation(newConv.id, {
+        systemPrompt: systemPrompt.value
+      });
       
       // 强制刷新UI
       nextTick(() => {

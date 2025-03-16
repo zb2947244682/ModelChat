@@ -104,7 +104,7 @@ export const chatStore = {
   },
 
   // 创建新对话
-  createConversation(title, systemPrompt = '') {
+  createConversation(title, systemPrompt = '你是一个智能助手。') {
     const newConversation = reactive({
       id: Date.now().toString(),
       title: title || `对话 ${this.state.conversations.length + 1}`,

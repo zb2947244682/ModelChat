@@ -78,12 +78,12 @@ export default {
     // 添加新模型
     const addNewModel = () => {
       currentEditModel.value = {
-        provider: '',
+        provider: '新的模型',
         api_mode: 'OpenAPI标准接口',
-        api_endpoint: '',
-        api_path: '',
+        api_endpoint: 'https://api.openai.com/v1',
+        api_path: '/chat/completions',
         api_key: '',
-        model_list: [],
+        model_list: ['gpt-4o-mini'],
         max_context_messages: 20,
         temperature: 0.7,
         top_p: 1,
