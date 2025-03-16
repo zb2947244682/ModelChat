@@ -60,13 +60,13 @@
               <div v-if="editingSystemPrompt" class="message-edit">
                 <textarea v-model="editingSystemPromptContent"></textarea>
                 <div class="edit-actions">
-                  <button @click="saveSystemPromptEdit">保存</button>
-                  <button @click="cancelSystemPromptEdit">取消</button>
+                  <button @click="saveSystemPromptEdit" title="保存">🗸</button>
+                  <button @click="cancelSystemPromptEdit" title="取消">✗</button>
                 </div>
               </div>
               <div v-else class="message-content">{{ systemPrompt }}</div>
               
-              <div class="message-actions visible">
+              <div v-if="!editingSystemPrompt" class="message-actions visible">
                 <button @click="editSystemPrompt" title="编辑">✏️</button>
               </div>
             </div>
@@ -104,7 +104,10 @@
           </template>
           
           <div v-if="isLoading" class="message assistant-message">
-            <div class="message-content loading">正在思考...</div>
+            <div class="message-content loading">
+              {{ loadingTimeout ? '大模型无响应' : '正在思考...' }}
+              <button v-if="!loadingTimeout" @click="stopLoading" class="stop-button" title="停止">⏹️</button>
+            </div>
           </div>
           
           <div v-if="currentConversation && currentConversation.messages.length > 0" class="clear-conversation">
@@ -152,17 +155,15 @@
               </div>
             </div>
             
-            <!-- 系统提示词按钮 -->
-            <button class="system-prompt-btn" @click="showSystemPromptModal = true">
-              系统提示词
-            </button>
           </div>
           
           <div class="input-container">
             <textarea 
               v-model="userInput" 
-              @keydown.enter.prevent="sendMessage"
-              placeholder="输入您的问题或指令..."
+              @keydown.enter.exact.prevent="sendMessage"
+              @keydown.shift.enter="() => {}"
+              placeholder="输入您的问题或指令... (Enter发送，Shift+Enter换行)"
+              rows="4"
             ></textarea>
             <button @click="sendMessage" :disabled="isLoading || !userInput.trim()">
               <span class="icon">&#10148;</span>
@@ -199,6 +200,8 @@ export default {
     const router = useRouter();
     const userInput = ref('');
     const isLoading = ref(false);
+    const loadingTimeout = ref(false);
+    const loadingTimer = ref(null);
     const showChatList = ref(false);
     const messagesContainer = ref(null);
     const systemPrompt = ref('');
@@ -1123,9 +1126,50 @@ export default {
       editingSystemPrompt.value = false;
     };
 
+    // 停止加载
+    const stopLoading = () => {
+      if (loadingTimer.value) {
+        clearTimeout(loadingTimer.value);
+        loadingTimer.value = null;
+      }
+      loadingTimeout.value = false;
+      isLoading.value = false;
+    };
+
+    // 设置加载超时
+    const setLoadingTimeout = () => {
+      if (loadingTimer.value) {
+        clearTimeout(loadingTimer.value);
+      }
+      
+      loadingTimeout.value = false;
+      loadingTimer.value = setTimeout(() => {
+        if (isLoading.value) {
+          loadingTimeout.value = true;
+          console.log("加载超时，大模型无响应");
+        }
+      }, 5000); // 5秒超时
+    };
+
+    // 监听加载状态变化
+    watch(isLoading, (newValue) => {
+      if (newValue) {
+        // 开始加载时设置超时
+        setLoadingTimeout();
+      } else {
+        // 停止加载时清除超时
+        if (loadingTimer.value) {
+          clearTimeout(loadingTimer.value);
+          loadingTimer.value = null;
+        }
+        loadingTimeout.value = false;
+      }
+    });
+
     return {
       userInput,
       isLoading,
+      loadingTimeout,
       showChatList,
       messagesContainer,
       systemPrompt,
@@ -1140,6 +1184,7 @@ export default {
       updateSystemPrompt,
       sendMessage,
       goToSettings,
+      stopLoading,
       // 消息编辑功能
       editingMessageId,
       editingContent,

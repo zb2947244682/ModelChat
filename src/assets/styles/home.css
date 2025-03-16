@@ -147,6 +147,13 @@
   display: none;
 }
 
+/* 在PC模式下隐藏移动端专用元素 */
+@media (min-width: 769px) {
+  .mobile-only {
+    display: none;
+  }
+}
+
 /* 模型选择器紧凑样式 */
 .model-selector-compact {
   display: flex;
@@ -421,12 +428,36 @@
 .loading {
   position: relative;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .loading:after {
   content: '...';
   position: absolute;
   animation: dots 1.5s steps(4, end) infinite;
+}
+
+.stop-button {
+  margin-left: 10px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: #f44336;
+  color: white;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+}
+
+.stop-button:hover {
+  background-color: #d32f2f;
+  transform: scale(1.1);
 }
 
 @keyframes dots {
@@ -557,7 +588,7 @@
 
 .input-container textarea {
   flex: 1;
-  min-height: 80px; /* 输入框高度 */
+  min-height: 100px; /* 保持4行高度 */
   padding: 12px 14px;
   border-radius: var(--border-radius-lg);
   border: 1px solid var(--border-color);
@@ -567,6 +598,7 @@
   font-size: 14px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   line-height: 1.5;
+  rows: 4; /* 设置4行高度 */
 }
 
 .input-container textarea:focus {
@@ -575,35 +607,7 @@
 }
 
 .input-container button {
-  align-self: flex-end;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background-color: var(--primary-color);
-  color: white;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.input-container button .icon {
-  font-size: 20px;
-}
-
-.input-container button:hover:not(:disabled) {
-  background-color: var(--primary-light);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.input-container button:disabled {
-  background-color: var(--border-color);
-  cursor: not-allowed;
-  box-shadow: none;
-  opacity: 0.7;
+  display: none; /* 隐藏发送按钮 */
 }
 
 /* 聊天列表面板样式 - 仅在移动端显示 */

@@ -1,7 +1,7 @@
 <template>
   <div class="chat-list-container">
     <div class="header">
-      <h2>对话列表</h2>
+      <h2 class="mobile-only">对话列表</h2>
       <button v-if="!hideCloseButton" @click="$emit('close')" title="关闭">✕</button>
     </div>
 
