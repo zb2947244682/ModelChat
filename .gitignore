@@ -66,3 +66,6 @@ android/app/src/main/res/xml/file_paths.xml
 android/app/src/test/java/com/getcapacitor/myapp/ExampleUnitTest.java
 android/gradle/wrapper/gradle-wrapper.jar
 android/gradle/wrapper/gradle-wrapper.properties
+android/app/release/output-metadata.json
+android/app/release/baselineProfiles/0/app-release.dm
+android/app/release/baselineProfiles/1/app-release.dm
