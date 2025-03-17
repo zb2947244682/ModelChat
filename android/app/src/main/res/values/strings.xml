@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">ModelChat</string>
-    <string name="title_activity_main">ModelChat</string>
-    <string name="package_name">xyz.qingfengyueying.modelchat</string>
-    <string name="custom_url_scheme">xyz.qingfengyueying.modelchat</string>
-</resources>

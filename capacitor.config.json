@@ -1,15 +1,5 @@
 {
   "appId": "xyz.qingfengyueying.modelchat",
   "appName": "ModelChat",
-  "webDir": "dist",
-  "plugins": {
-    "SplashScreen": {
-      "launchShowDuration": 0
-    },
-    "StatusBar": {
-      "style": "dark",
-      "backgroundColor": "#ffffff",
-      "overlaysWebView": false
-    }
-  }
+  "webDir": "dist"
 }
